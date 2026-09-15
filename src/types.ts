@@ -1,4 +1,14 @@
-export type OrderType = 'IN' | 'OUT' | 'R';
+export type OrderType = 'IN' | 'OUT' | 'R' | 'SCRAP' | 'TRANSFER';
+
+export type MainTab = 
+  | 'inventory'
+  | 'in_orders'
+  | 'out_orders'
+  | 'scrap'
+  | 'calendar'
+  | 'options'
+  | 'logs'
+  | 'settings';
 
 export interface OrderItem {
   id?: string;
@@ -11,8 +21,9 @@ export interface OrderItem {
   specification: string;
   quantity: number;
   unit: string;
-  location: string;
-  supplier: string;
+  location: string;    // 案場或庫位
+  supplier?: string;   // 進貨: 材料商 / 出貨: 領料工班
+  targetLocation?: string; // 調撥目標
   notes?: string;
 }
 
@@ -22,6 +33,18 @@ export interface InventoryRecord extends OrderItem {
   createdAt: any;
   updatedAt: any;
   updatedBy: string;
+}
+
+export interface StockItem {
+  id: string;
+  category: string;
+  itemName: string;
+  specification: string;
+  location: string;
+  unit: string;
+  currentStock: number;
+  minStock?: number; // 安全庫存警示值
+  lastUpdated: any;
 }
 
 export interface GlobalOptions {
