@@ -7,14 +7,14 @@ import {
   getDocs,
   query,
   where,
-  orderBy
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { OrderType, OrderItem, GlobalOptions } from '../types';
 
 export const generateOrderId = async (type: OrderType, orderDate: string): Promise<string> => {
   const dateStr = orderDate.replace(/-/g, '');
-  const prefix = type === 'IN' ? 'I' : type === 'OUT' ? 'O' : type === 'R' ? 'R' : 'S';
+  const prefix = type === 'IN' ? 'I' : type === 'OUT' ? 'O' : type === 'R' ? 'R' : type === 'TRANSFER' ? 'T' : 'S';
   const counterId = `${type}_${dateStr}`;
   const counterRef = doc(db, 'order_counters', counterId);
 
@@ -69,6 +69,57 @@ export const saveOrderWithItems = async (
   return orderId;
 };
 
+export const updateOrderWithItems = async (
+  oldOrderId: string,
+  oldOrderDate: string,
+  newOrderDate: string,
+  type: OrderType,
+  items: OrderItem[],
+  userEmail: string
+) => {
+  let finalOrderId = oldOrderId;
+  // 若訂單日期變更，換發全新流水號
+  if (oldOrderDate !== newOrderDate) {
+    finalOrderId = await generateOrderId(type, newOrderDate);
+  }
+
+  // 1. 查詢舊明細並全部刪除
+  const q = query(collection(db, 'inventory_records'), where('orderId', '==', oldOrderId));
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+
+  // 2. 寫入新明細
+  items.forEach((item, index) => {
+    const recordRef = doc(collection(db, 'inventory_records'));
+    batch.set(recordRef, {
+      ...item,
+      orderId: finalOrderId,
+      orderDate: newOrderDate,
+      type,
+      orderIndex: index + 1,
+      updatedAt: serverTimestamp(),
+      updatedBy: userEmail,
+      createdAt: serverTimestamp(),
+    });
+  });
+
+  // 3. 稽核日誌
+  const logRef = doc(collection(db, 'operation_logs'));
+  batch.set(logRef, {
+    action: 'UPDATE',
+    targetId: finalOrderId,
+    targetName: `更新單據 ${finalOrderId} (原 ${oldOrderId})`,
+    userId: userEmail,
+    userEmail,
+    timestamp: serverTimestamp(),
+    details: { oldOrderId, finalOrderId, dateChanged: oldOrderDate !== newOrderDate }
+  });
+
+  await batch.commit();
+  return finalOrderId;
+};
+
 export const deleteOrder = async (orderId: string, userEmail: string) => {
   const q = query(collection(db, 'inventory_records'), where('orderId', '==', orderId));
   const snap = await getDocs(q);
@@ -87,4 +138,9 @@ export const deleteOrder = async (orderId: string, userEmail: string) => {
   });
 
   await batch.commit();
+};
+
+export const saveGlobalOptions = async (options: GlobalOptions) => {
+  const ref = doc(db, 'settings', 'options');
+  await setDoc(ref, options, { merge: true });
 };
