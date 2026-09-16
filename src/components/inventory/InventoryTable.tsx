@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, PlusCircle, ArrowUpRight, SlidersHorizontal, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { 
+  AlertTriangle, 
+  CheckCircle, 
+  PlusCircle, 
+  ArrowUpRight, 
+  SlidersHorizontal, 
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
+} from 'lucide-react';
 import { GlobalOptions } from '../../types';
 import { SearchDropdown } from './SearchDropdown';
 import { matchesHydroQuery } from '../../services/hydroDictionary';
@@ -68,6 +78,77 @@ export const InventoryTable: React.FC<Props> = ({
 
     return matchCat && matchSearch;
   });
+
+  // 三段式排序：升冪 (asc) -> 降冪 (desc) -> 無排序 (none)
+  const [sortField, setSortField] = useState<'category' | 'itemName' | 'specification' | 'location' | 'total' | 'status' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | 'none'>('none');
+
+  const handleSort = (field: 'category' | 'itemName' | 'specification' | 'location' | 'total' | 'status') => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection('asc');
+    } else {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortField(null);
+        setSortDirection('none');
+      } else {
+        setSortDirection('asc');
+      }
+    }
+  };
+
+  const sortedList = useMemo(() => {
+    if (!sortField || sortDirection === 'none') {
+      return filtered;
+    }
+    return [...filtered].sort((a, b) => {
+      let comp = 0;
+      if (sortField === 'total') {
+        comp = a.total - b.total;
+      } else if (sortField === 'status') {
+        const getScore = (it: CalculatedStock) => {
+          const min = getMinStock(it.itemName);
+          if (it.total <= 0) return 0;
+          if (it.total <= min) return 1;
+          return 2;
+        };
+        comp = getScore(a) - getScore(b);
+      } else {
+        const valA = (a[sortField] || '').toString();
+        const valB = (b[sortField] || '').toString();
+        comp = valA.localeCompare(valB, 'zh-TW', { numeric: true, sensitivity: 'base' });
+      }
+      return sortDirection === 'asc' ? comp : -comp;
+    });
+  }, [filtered, sortField, sortDirection]);
+
+  const renderSortHeader = (field: 'category' | 'itemName' | 'specification' | 'location' | 'total' | 'status', label: string, align: 'left' | 'right' | 'center' = 'left') => {
+    const isActive = sortField === field && sortDirection !== 'none';
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className={`py-3 px-4 font-semibold select-none cursor-pointer group hover:text-cyan-400 transition-colors ${
+          align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
+        }`}
+        title={`點擊切換：升冪、降冪、無排序 (目前: ${!isActive ? '無排序' : sortDirection === 'asc' ? '升冪 ↑' : '降冪 ↓'})`}
+      >
+        <div className={`inline-flex items-center space-x-1.5 ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'}`}>
+          <span className={isActive ? 'text-cyan-400 font-bold' : ''}>{label}</span>
+          <span className="inline-flex items-center">
+            {!isActive ? (
+              <ArrowUpDown size={12} className="opacity-35 group-hover:opacity-90 transition" />
+            ) : sortDirection === 'asc' ? (
+              <ArrowUp size={13} className="text-cyan-400 font-bold" />
+            ) : (
+              <ArrowDown size={13} className="text-cyan-400 font-bold" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -155,18 +236,18 @@ export const InventoryTable: React.FC<Props> = ({
         <table className="w-full text-left text-xs">
           <thead className="bg-[#181C25] text-[#8A93A6] border-b border-[#2B3242]">
             <tr>
-              <th className="py-3 px-4 font-semibold">材料分類</th>
-              <th className="py-3 px-4 font-semibold">品名與型號</th>
-              <th className="py-3 px-4 font-semibold">規格尺寸</th>
-              <th className="py-3 px-4 font-semibold">案場 / 庫位</th>
-              <th className="py-3 px-4 font-semibold text-right">結存數量</th>
+              {renderSortHeader('category', '材料分類', 'left')}
+              {renderSortHeader('itemName', '品名與型號', 'left')}
+              {renderSortHeader('specification', '規格尺寸', 'left')}
+              {renderSortHeader('location', '案場 / 庫位', 'left')}
+              {renderSortHeader('total', '結存數量', 'right')}
               <th className="py-3 px-4 font-semibold">單位</th>
-              <th className="py-3 px-4 font-semibold text-center">庫存狀態</th>
+              {renderSortHeader('status', '庫存狀態', 'center')}
               <th className="py-3 px-4 font-semibold text-right">快捷操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#282F3E]">
-            {filtered.map((item, idx) => {
+            {sortedList.map((item, idx) => {
               const minStock = getMinStock(item.itemName);
               const isLow = item.total <= minStock;
               const isZero = item.total <= 0;
@@ -181,30 +262,30 @@ export const InventoryTable: React.FC<Props> = ({
                   <td className="py-3 px-4 font-medium text-white text-sm">
                     {item.itemName}
                   </td>
-                  <td className="py-3 px-4 text-cyan-300 font-mono">
+                  <td className="py-3 px-4 text-cyan-300 font-mono font-semibold">
                     {item.specification || '-'}
                   </td>
                   <td className="py-3 px-4 text-[#A1AAB9]">
                     {item.location}
                   </td>
                   <td className="py-3 px-4 text-right font-mono font-bold text-base">
-                    <span className={isZero ? 'text-red-500' : isLow ? 'text-amber-400' : 'text-white'}>
+                    <span className={isZero ? 'text-red-500 font-bold' : isLow ? 'text-amber-400 font-bold' : 'text-white'}>
                       {item.total}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-[#8A93A6]">{item.unit}</td>
                   <td className="py-3 px-4 text-center">
                     {isZero ? (
-                      <span className="inline-flex items-center text-[11px] bg-red-950/60 text-red-400 px-2 py-0.5 rounded border border-red-500/40">
-                        <AlertTriangle size={12} className="mr-1" /> 已缺料 (0)
+                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-empty shadow-xs">
+                        <AlertTriangle size={12} className="mr-1 shrink-0" /> 已缺料 (0)
                       </span>
                     ) : isLow ? (
-                      <span className="inline-flex items-center text-[11px] bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40">
-                        <AlertTriangle size={12} className="mr-1" /> 偏低 (≤{minStock})
+                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-low shadow-xs">
+                        <AlertTriangle size={12} className="mr-1 shrink-0" /> 偏低 (≤{minStock})
                       </span>
                     ) : (
-                      <span className="inline-flex items-center text-[11px] bg-emerald-950/60 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/40">
-                        <CheckCircle size={12} className="mr-1" /> 充足
+                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-normal shadow-xs">
+                        <CheckCircle size={12} className="mr-1 shrink-0" /> 充足
                       </span>
                     )}
                   </td>
@@ -242,7 +323,7 @@ export const InventoryTable: React.FC<Props> = ({
 
       {/* 手機行動端卡片模式 */}
       <div className="md:hidden space-y-2.5">
-        {filtered.map((item, idx) => {
+        {sortedList.map((item, idx) => {
           const minStock = getMinStock(item.itemName);
           const isLow = item.total <= minStock;
           const isZero = item.total <= 0;
@@ -255,18 +336,26 @@ export const InventoryTable: React.FC<Props> = ({
                     {item.category}
                   </span>
                   <div className="font-bold text-white text-sm mt-1">{item.itemName}</div>
-                  <div className="text-xs text-cyan-300 font-mono">規格: {item.specification || '-'}</div>
+                  <div className="text-xs text-cyan-300 font-mono font-semibold">規格: {item.specification || '-'}</div>
                 </div>
                 <div className="text-right">
                   <div className="font-mono text-xl font-bold text-white">
-                    <span className={isZero ? 'text-red-500' : isLow ? 'text-amber-400' : 'text-white'}>
+                    <span className={isZero ? 'text-red-500 font-bold' : isLow ? 'text-amber-400 font-bold' : 'text-white'}>
                       {item.total}
                     </span>{' '}
                     <span className="text-xs text-[#8A93A6]">{item.unit}</span>
                   </div>
-                  {isLow && (
-                    <span className="text-[10px] text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/40 inline-block mt-1">
-                      需補貨
+                  {isZero ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold badge-stock-empty inline-block mt-1">
+                      已缺料 (0)
+                    </span>
+                  ) : isLow ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold badge-stock-low inline-block mt-1">
+                      偏低 (≤{minStock})
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold badge-stock-normal inline-block mt-1">
+                      充足
                     </span>
                   )}
                 </div>

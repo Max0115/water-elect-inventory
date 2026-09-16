@@ -10,7 +10,9 @@ import {
   Truck,
   ArrowRightLeft
 } from 'lucide-react';
-import { InventoryRecord, OrderType } from '../../types';
+import { InventoryRecord, OrderType, GlobalOptions } from '../../types';
+import { SearchDropdown } from '../inventory/SearchDropdown';
+import { matchesHydroQuery } from '../../services/hydroDictionary';
 
 interface Props {
   records: InventoryRecord[];
@@ -18,6 +20,7 @@ interface Props {
   title: string;
   onEditOrder: (orderId: string) => void;
   onDeleteOrder: (orderId: string) => void;
+  options?: GlobalOptions;
 }
 
 export const OrderList: React.FC<Props> = ({
@@ -26,6 +29,7 @@ export const OrderList: React.FC<Props> = ({
   title,
   onEditOrder,
   onDeleteOrder,
+  options,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
@@ -49,7 +53,9 @@ export const OrderList: React.FC<Props> = ({
     Object.entries(grouped).forEach(([orderId, items]) => {
       const matchOrderId = orderId.toLowerCase().includes(term);
       const matchSupplier = items.some(it => (it.supplier || '').toLowerCase().includes(term));
-      const matchItem = items.some(it => it.itemName.toLowerCase().includes(term) || (it.specification || '').toLowerCase().includes(term));
+      const matchItem = items.some(it => 
+        matchesHydroQuery(it, searchTerm, options?.synonyms, options?.sizeAliases)
+      );
 
       if (matchOrderId || matchSupplier || matchItem) {
         result[orderId] = items;
@@ -57,7 +63,7 @@ export const OrderList: React.FC<Props> = ({
     });
 
     return result;
-  }, [records, orderType, searchTerm]);
+  }, [records, orderType, searchTerm, options]);
 
   const toggleOrder = (orderId: string) => {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
@@ -81,16 +87,12 @@ export const OrderList: React.FC<Props> = ({
     <div className="space-y-4">
       {/* 頂部搜尋與批次展開 */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-[#1D212C] p-3 rounded-xl border border-[#2A3141]">
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#717B8F]" />
-          <input
-            type="text"
-            placeholder={`搜尋單號、廠商/工班、或品名...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#161922] border border-[#2E3647] rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-[#717B8F] focus:outline-none focus:border-cyan-500 transition"
-          />
-        </div>
+        <SearchDropdown
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder={`搜尋 ${title} 之單號、廠商/工班、台語俗稱或品名...`}
+          className="max-w-md"
+        />
 
         <div className="flex items-center space-x-2 text-xs">
           <button

@@ -140,6 +140,7 @@ body {
 
 .theme-light .bg-amber-950,
 .theme-light .bg-amber-950\/40,
+.theme-light .bg-amber-950\/60,
 .theme-light .bg-amber-900\/20,
 .theme-light .bg-amber-500\/20 { 
   background-color: #FEF3C7 !important; 
@@ -149,6 +150,7 @@ body {
 
 .theme-light .bg-red-950,
 .theme-light .bg-red-950\/40,
+.theme-light .bg-red-950\/60,
 .theme-light .bg-red-900\/20,
 .theme-light .bg-red-500\/20 { 
   background-color: #FEE2E2 !important; 
@@ -157,11 +159,53 @@ body {
 }
 
 .theme-light .bg-emerald-950,
+.theme-light .bg-emerald-950\/40,
+.theme-light .bg-emerald-950\/60,
 .theme-light .bg-emerald-900\/20,
 .theme-light .bg-emerald-500\/20 { 
   background-color: #D1FAE5 !important; 
   border-color: #A7F3D0 !important;
   color: #065F46 !important;
+}
+
+/* 庫存狀態專屬徽章 (兼顧雙主題高對比與眼睛舒適度) */
+.badge-stock-normal {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.badge-stock-low {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.badge-stock-empty {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.theme-light .badge-stock-normal {
+  background-color: #ECFDF5 !important;
+  color: #065F46 !important; /* 濃郁森林翠綠 */
+  border-color: #A7F3D0 !important;
+  font-weight: 600 !important;
+}
+
+.theme-light .badge-stock-low {
+  background-color: #FFFBEB !important;
+  color: #92400E !important; /* 濃郁琥珀暖棕 */
+  border-color: #FDE68A !important;
+  font-weight: 600 !important;
+}
+
+.theme-light .badge-stock-empty {
+  background-color: #FEF2F2 !important;
+  color: #991B1B !important; /* 濃郁警戒磚紅 */
+  border-color: #FECACA !important;
+  font-weight: 600 !important;
 }
 
 /* 6. 輸入框與下拉選單 */

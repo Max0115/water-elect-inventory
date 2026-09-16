@@ -30,6 +30,7 @@ import {
   OperationLog, 
   OrderType 
 } from './types';
+import { APP_VERSION } from './version';
 
 export default function App() {
   // 主題模式 (白天強光 vs 暗黑夜間)
@@ -202,24 +203,65 @@ export default function App() {
     return new Set(orders.map(o => o.orderId)).size;
   }, [records, todayStr]);
 
-  // Excel 匯出庫存表
+  // Excel 匯出庫存表 (專業美化排版)
   const handleExportExcel = () => {
-    const exportData = stockSummary.map(item => ({
-      '分類': item.category,
-      '材料品名': item.itemName,
-      '規格尺寸': item.specification,
-      '所在案場/庫位': item.location,
-      '結餘存量': item.total,
-      '單位': item.unit,
-      '安全庫存警戒值': options.minStockMap?.[item.itemName] ?? 5,
-      '狀態': item.total <= (options.minStockMap?.[item.itemName] ?? 5) ? '需補貨' : '正常'
-    }));
+    const lowStockCount = stockSummary.filter(it => it.total <= (options.minStockMap?.[it.itemName] ?? 5)).length;
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    // 報表前置抬頭區塊
+    const titleRows = [
+      ['【水電工程材料即時庫存盤點報表】'],
+      [`統計案場 / 庫位：${selectedLocation}`, '', '', `匯出時間：${new Date().toLocaleString('zh-TW')}`, '', `統計品項數：共 ${stockSummary.length} 項`],
+      [`安全庫存告急品項：${lowStockCount} 項`, '', '', `系統版本：Site Inventory ${APP_VERSION}`],
+      [], // 空行分隔
+      ['項次', '材料分類', '材料品名與型號', '規格尺寸', '所在案場 / 庫位', '即時結存', '計量單位', '安全警戒值', '庫存狀態']
+    ];
+
+    // 明細資料列
+    const dataRows = stockSummary.map((item, idx) => {
+      const minStock = options.minStockMap?.[item.itemName] ?? 5;
+      const statusStr = item.total <= 0 
+        ? '已缺料 (0)' 
+        : item.total <= minStock 
+          ? `偏低 (≤${minStock})` 
+          : '正常充足';
+
+      return [
+        idx + 1,
+        item.category,
+        item.itemName,
+        item.specification || '-',
+        item.location,
+        item.total,
+        item.unit,
+        minStock,
+        statusStr
+      ];
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([...titleRows, ...dataRows]);
+
+    // 設定專業欄寬 (字元數寬度)，防止文字被遮蔽
+    worksheet['!cols'] = [
+      { wch: 8 },  // 項次
+      { wch: 18 }, // 材料分類
+      { wch: 28 }, // 材料品名與型號
+      { wch: 18 }, // 規格尺寸
+      { wch: 22 }, // 所在案場/庫位
+      { wch: 14 }, // 即時結存
+      { wch: 10 }, // 計量單位
+      { wch: 14 }, // 安全警戒值
+      { wch: 16 }  // 庫存狀態
+    ];
+
+    // 合併第 1 列大標題 (A1:I1)
+    worksheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }
+    ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, '水電即時庫存表');
     XLSX.writeFile(workbook, `水電材料庫存報表_${selectedLocation}_${todayStr}.xlsx`);
-    showToast('庫存表已成功匯出 Excel', 'success');
+    showToast('庫存表已成功以專業排版格式匯出 Excel', 'success');
   };
 
   // 快速開單帶入
@@ -310,6 +352,7 @@ export default function App() {
               records={records}
               orderType="IN"
               title="進貨單據"
+              options={options}
               onEditOrder={(id) => {
                 setEditingOrderId(id);
                 setEditModalOpen(true);
@@ -324,6 +367,7 @@ export default function App() {
               records={records}
               orderType="OUT"
               title="現場領料出庫"
+              options={options}
               onEditOrder={(id) => {
                 setEditingOrderId(id);
                 setEditModalOpen(true);
@@ -338,6 +382,7 @@ export default function App() {
               records={records}
               orderType="SCRAP"
               title="餘料短管暫存"
+              options={options}
               onEditOrder={(id) => {
                 setEditingOrderId(id);
                 setEditModalOpen(true);

@@ -17,7 +17,8 @@
  *    - 例如：v2.1.0 -> v2.1.1 (微調拖曳插入指示線動畫、修正數量欄位邊界防呆)。
  */
 
-export const APP_VERSION = 'v2.1.0';
+export const APP_VERSION = 'v2.1.1';
 export const APP_RELEASE_DATE = '2026-09-16';
-export const APP_VERSION_NAME = '水電工班智慧版 (台語辭典・零狀態搜尋・雙主題)';
+export const APP_VERSION_NAME = '水電工班智慧增強版 (三段排序・全域零狀態搜尋・舒適對比徽章・Excel美化)';
 export const APP_SYSTEM_NAME = '水電庫存智管';
+

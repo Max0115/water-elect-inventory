@@ -263,3 +263,4 @@ export const SearchDropdown: React.FC<Props> = ({
     </div>
   );
 };
+
