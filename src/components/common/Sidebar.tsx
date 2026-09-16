@@ -4,7 +4,6 @@ import {
   Download, 
   Upload, 
   Layers, 
-  Calendar, 
   Sliders, 
   FileText, 
   LogOut, 
@@ -37,7 +36,6 @@ export const Sidebar: React.FC<Props> = ({
     { id: 'in_orders', label: '進貨管理', icon: Download },
     { id: 'out_orders', label: '現場領料出庫', icon: Upload },
     { id: 'scrap', label: '餘料 / 短管管理', icon: Layers },
-    { id: 'calendar', label: '工班排假 / 出勤', icon: Calendar },
     { id: 'options', label: '材料與常用設定', icon: Sliders },
     { id: 'logs', label: '操作軌跡日誌', icon: FileText },
   ];

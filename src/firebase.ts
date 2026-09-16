@@ -2,21 +2,29 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-const env = (import.meta as any).env || {};
+// 必須以靜態方式直接存取 import.meta.env.VITE_*，以利 Vite 在生產建置時正確替換環境變數
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+const appId = import.meta.env.VITE_FIREBASE_APP_ID;
 
 export const hasValidConfig = Boolean(
-  env.VITE_FIREBASE_API_KEY && 
-  env.VITE_FIREBASE_API_KEY !== 'undefined' && 
-  !env.VITE_FIREBASE_API_KEY.includes('your_')
+  apiKey && 
+  apiKey !== 'undefined' && 
+  !apiKey.includes('your_') &&
+  projectId &&
+  projectId !== 'undefined'
 );
 
 const firebaseConfig = hasValidConfig ? {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
+  apiKey,
+  authDomain,
+  projectId,
+  storageBucket,
+  messagingSenderId,
+  appId,
 } : {
   apiKey: 'AIzaSyDemoFallbackKeyForLocalDevOnly123456',
   authDomain: 'water-elect-demo.firebaseapp.com',

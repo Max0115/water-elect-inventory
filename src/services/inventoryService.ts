@@ -9,23 +9,21 @@ import {
   where, 
   orderBy, 
   setDoc,
-  deleteDoc
 } from 'firebase/firestore';
 import { db, hasValidConfig } from '../firebase';
-import { OrderType, OrderItem, GlobalOptions, InventoryRecord, OperationLog, CrewCalendarEvent } from '../types';
-import { initialOptions, sampleRecords, sampleLogs, sampleCrewEvents } from './mockData';
+import { OrderType, OrderItem, GlobalOptions, InventoryRecord, OperationLog } from '../types';
+import { initialOptions, sampleRecords, sampleLogs } from './mockData';
 
-const LOCAL_STORAGE_RECORDS_KEY = 'water_elect_records_cache_v2';
-const LOCAL_STORAGE_OPTIONS_KEY = 'water_elect_options_cache_v2';
-const LOCAL_STORAGE_LOGS_KEY = 'water_elect_logs_cache_v2';
-const LOCAL_STORAGE_CREW_KEY = 'water_elect_crew_cache_v2';
+const LOCAL_STORAGE_RECORDS_KEY = 'water_elect_records_cache_v3';
+const LOCAL_STORAGE_OPTIONS_KEY = 'water_elect_options_cache_v3';
+const LOCAL_STORAGE_LOGS_KEY = 'water_elect_logs_cache_v3';
 
 // 檢查 Firebase 是否有效配置
 const isFirebaseConfigured = (): boolean => {
   return hasValidConfig;
 };
 
-// 本地緩存輔助函數
+// 本地緩存讀取輔助函數
 const getLocalData = <T>(key: string, fallback: T): T => {
   try {
     const saved = localStorage.getItem(key);
@@ -36,12 +34,41 @@ const getLocalData = <T>(key: string, fallback: T): T => {
   return fallback;
 };
 
+// 本地緩存寫入輔助函數
 const setLocalData = <T>(key: string, data: T) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (e) {
     console.warn(`Failed writing localStorage for ${key}`, e);
   }
+};
+
+// 自動清理材料品名中尺寸規格 (如: 電S 1" -> 電S, 45度OL 單放 2" -> 45度OL 單放)
+export const sanitizeItemName = (name: string): string => {
+  if (!name) return '';
+  return name
+    .replace(/\s*\d+["”'](\(\d+\))?([xX]\d+["”'](\(\d+\))?)*/g, '')
+    .replace(/\s*\d+\/\d+["”']/g, '')
+    .replace(/\s*\d+-\d+\/\d+["”']/g, '')
+    .trim();
+};
+
+// 清理整個 options 中的分類品名尺寸
+export const sanitizeGlobalOptions = (opts: GlobalOptions): GlobalOptions => {
+  const sanitizedCategories: Record<string, string[]> = {};
+  Object.entries(opts.categories).forEach(([cat, items]) => {
+    const cleanedSet = new Set<string>();
+    items.forEach(it => {
+      const clean = sanitizeItemName(it);
+      if (clean) cleanedSet.add(clean);
+    });
+    sanitizedCategories[cat] = Array.from(cleanedSet);
+  });
+
+  return {
+    ...opts,
+    categories: sanitizedCategories
+  };
 };
 
 // 產生訂單流水號 (例如: I-20260916-01)
@@ -68,7 +95,7 @@ export const generateOrderId = async (type: OrderType, orderDate: string): Promi
     }
   }
 
-  // 本地生成
+  // 本地計數生成
   const localRecords = getLocalData<InventoryRecord[]>(LOCAL_STORAGE_RECORDS_KEY, sampleRecords);
   const matchingOrders = localRecords.filter(r => r.type === type && r.orderDate === orderDate);
   const uniqueOrderIds = Array.from(new Set(matchingOrders.map(r => r.orderId)));
@@ -76,56 +103,68 @@ export const generateOrderId = async (type: OrderType, orderDate: string): Promi
   return `${prefix}-${dateStr}-${String(nextSeq).padStart(2, '0')}`;
 };
 
-// 讀取全域選項
+// 讀取全域選項 (包含自動清除尺寸過濾)
 export const fetchGlobalOptions = async (): Promise<GlobalOptions> => {
+  let rawOptions: GlobalOptions = getLocalData<GlobalOptions>(LOCAL_STORAGE_OPTIONS_KEY, initialOptions);
+
   if (isFirebaseConfigured()) {
     try {
       const snap = await getDocs(collection(db, 'settings'));
       const optionsDoc = snap.docs.find(d => d.id === 'options');
       if (optionsDoc && optionsDoc.exists()) {
-        const data = optionsDoc.data() as GlobalOptions;
-        setLocalData(LOCAL_STORAGE_OPTIONS_KEY, data);
-        return data;
+        rawOptions = optionsDoc.data() as GlobalOptions;
       }
     } catch (e) {
       console.warn('Could not fetch options from Firebase, using cache', e);
     }
   }
-  return getLocalData<GlobalOptions>(LOCAL_STORAGE_OPTIONS_KEY, initialOptions);
+
+  // 確保自動清理掉品名內硬編碼之尺寸
+  const sanitized = sanitizeGlobalOptions(rawOptions);
+  setLocalData(LOCAL_STORAGE_OPTIONS_KEY, sanitized);
+  return sanitized;
 };
 
 // 儲存全域選項
 export const saveGlobalOptions = async (options: GlobalOptions) => {
-  setLocalData(LOCAL_STORAGE_OPTIONS_KEY, options);
+  const sanitized = sanitizeGlobalOptions(options);
+  setLocalData(LOCAL_STORAGE_OPTIONS_KEY, sanitized);
+
   if (isFirebaseConfigured()) {
     try {
       const ref = doc(db, 'settings', 'options');
-      await setDoc(ref, options, { merge: true });
+      await setDoc(ref, sanitized, { merge: true });
     } catch (e) {
-      console.warn('Failed saving options to Firebase', e);
+      console.warn('Failed saving options to Firebase (請確認 Firestore 權限):', e);
     }
   }
 };
 
-// 讀取全部單據明細
+// 讀取全部單據明細 (支援雙向合併，確保新建單據不會被空遠端覆蓋)
 export const fetchInventoryRecords = async (): Promise<InventoryRecord[]> => {
+  const localData = getLocalData<InventoryRecord[]>(LOCAL_STORAGE_RECORDS_KEY, sampleRecords);
+
   if (isFirebaseConfigured()) {
     try {
       const q = query(collection(db, 'inventory_records'), orderBy('orderDate', 'desc'));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as InventoryRecord[];
-        setLocalData(LOCAL_STORAGE_RECORDS_KEY, data);
-        return data;
+        const remoteData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as InventoryRecord[];
+        const remoteIds = new Set(remoteData.map(r => r.id || `${r.orderId}_${r.orderIndex}`));
+        const localUnSynced = localData.filter(r => !remoteIds.has(r.id || `${r.orderId}_${r.orderIndex}`));
+        const merged = [...localUnSynced, ...remoteData];
+        setLocalData(LOCAL_STORAGE_RECORDS_KEY, merged);
+        return merged;
       }
     } catch (e) {
-      console.warn('Firebase query failed, using local records', e);
+      console.warn('Firebase query records failed (請確認 Firestore 規則):', e);
     }
   }
-  return getLocalData<InventoryRecord[]>(LOCAL_STORAGE_RECORDS_KEY, sampleRecords);
+
+  return localData;
 };
 
-// 開立新單據
+// 開立新單據 (樂觀更新：立刻寫入本地確保 100% 成功，再異步同步 Firestore)
 export const saveOrderWithItems = async (
   type: OrderType,
   orderDate: string,
@@ -135,9 +174,11 @@ export const saveOrderWithItems = async (
   const orderId = await generateOrderId(type, orderDate);
   const now = new Date();
 
+  // 確保寫入前材料品名尺寸被清理
   const newRecords: InventoryRecord[] = items.map((item, index) => ({
     ...item,
-    id: `rec-${Date.now()}-${index}`,
+    itemName: sanitizeItemName(item.itemName),
+    id: `rec-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 4)}`,
     orderId,
     orderDate,
     type,
@@ -147,13 +188,13 @@ export const saveOrderWithItems = async (
     updatedBy: userEmail,
   }));
 
-  // 本地寫入
+  // 1. 立刻寫入本地快取 (確保畫面即時有數據，就算 Firebase 阻擋也不會遺失！)
   const currentRecords = getLocalData<InventoryRecord[]>(LOCAL_STORAGE_RECORDS_KEY, sampleRecords);
   setLocalData(LOCAL_STORAGE_RECORDS_KEY, [...newRecords, ...currentRecords]);
 
-  // 日誌寫入
+  // 2. 立刻寫入日誌快取
   const newLog: OperationLog = {
-    id: `log-${Date.now()}`,
+    id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
     action: 'CREATE',
     targetId: orderId,
     targetName: `開立單據 ${orderId} (${items.length}項)`,
@@ -165,7 +206,7 @@ export const saveOrderWithItems = async (
   const currentLogs = getLocalData<OperationLog[]>(LOCAL_STORAGE_LOGS_KEY, sampleLogs);
   setLocalData(LOCAL_STORAGE_LOGS_KEY, [newLog, ...currentLogs]);
 
-  // 同步 Firebase
+  // 3. 嘗試同步至 Firebase Firestore
   if (isFirebaseConfigured()) {
     try {
       const batch = writeBatch(db);
@@ -184,7 +225,7 @@ export const saveOrderWithItems = async (
       });
       await batch.commit();
     } catch (e) {
-      console.warn('Failed syncing order to Firebase', e);
+      console.warn('Firebase batch write failed (本地已成功保存，請確認 Firestore Security Rules):', e);
     }
   }
 
@@ -211,6 +252,7 @@ export const updateOrderWithItems = async (
   const remaining = currentRecords.filter(r => r.orderId !== oldOrderId);
   const updatedRecords: InventoryRecord[] = items.map((item, index) => ({
     ...item,
+    itemName: sanitizeItemName(item.itemName),
     id: `rec-${Date.now()}-${index}`,
     orderId: finalOrderId,
     orderDate: newOrderDate,
@@ -260,7 +302,7 @@ export const updateOrderWithItems = async (
       });
       await batch.commit();
     } catch (e) {
-      console.warn('Failed syncing updated order to Firebase', e);
+      console.warn('Failed syncing updated order to Firebase:', e);
     }
   }
 
@@ -301,79 +343,35 @@ export const deleteOrder = async (orderId: string, userEmail: string): Promise<v
       });
       await batch.commit();
     } catch (e) {
-      console.warn('Failed deleting order on Firebase', e);
+      console.warn('Failed deleting order on Firebase:', e);
     }
   }
 };
 
-// 讀取操作稽核日誌
+// 讀取操作稽核日誌 (支援雙向合併)
 export const fetchAuditLogs = async (): Promise<OperationLog[]> => {
+  const localLogs = getLocalData<OperationLog[]>(LOCAL_STORAGE_LOGS_KEY, sampleLogs);
+
   if (isFirebaseConfigured()) {
     try {
       const q = query(collection(db, 'operation_logs'), orderBy('timestamp', 'desc'));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        const data = snapshot.docs.map(d => ({
+        const remoteLogs = snapshot.docs.map(d => ({
           id: d.id,
           ...d.data(),
           timestamp: d.data().timestamp?.toDate ? d.data().timestamp.toDate().toISOString() : d.data().timestamp
         })) as OperationLog[];
-        setLocalData(LOCAL_STORAGE_LOGS_KEY, data);
-        return data;
+        const remoteIds = new Set(remoteLogs.map(l => l.id || l.targetId));
+        const unSyncedLogs = localLogs.filter(l => !remoteIds.has(l.id || l.targetId));
+        const merged = [...unSyncedLogs, ...remoteLogs];
+        setLocalData(LOCAL_STORAGE_LOGS_KEY, merged);
+        return merged;
       }
     } catch (e) {
-      console.warn('Firebase query logs failed, using local logs', e);
+      console.warn('Firebase query logs failed (請確認 Firestore 規則):', e);
     }
   }
-  return getLocalData<OperationLog[]>(LOCAL_STORAGE_LOGS_KEY, sampleLogs);
-};
 
-// 讀取工班排假與出勤行事曆
-export const fetchCrewCalendar = async (): Promise<CrewCalendarEvent[]> => {
-  if (isFirebaseConfigured()) {
-    try {
-      const q = query(collection(db, 'crew_calendar'), orderBy('date', 'desc'));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as CrewCalendarEvent[];
-        setLocalData(LOCAL_STORAGE_CREW_KEY, data);
-        return data;
-      }
-    } catch (e) {
-      console.warn('Firebase query crew calendar failed, using local', e);
-    }
-  }
-  return getLocalData<CrewCalendarEvent[]>(LOCAL_STORAGE_CREW_KEY, sampleCrewEvents);
-};
-
-// 儲存工班排假事件
-export const saveCrewCalendarEvent = async (event: CrewCalendarEvent): Promise<void> => {
-  const current = getLocalData<CrewCalendarEvent[]>(LOCAL_STORAGE_CREW_KEY, sampleCrewEvents);
-  const exists = current.some(e => e.id === event.id);
-  const updated = exists ? current.map(e => e.id === event.id ? event : e) : [event, ...current];
-  setLocalData(LOCAL_STORAGE_CREW_KEY, updated);
-
-  if (isFirebaseConfigured()) {
-    try {
-      const ref = doc(db, 'crew_calendar', event.id);
-      await setDoc(ref, event, { merge: true });
-    } catch (e) {
-      console.warn('Firebase save crew event failed', e);
-    }
-  }
-};
-
-// 刪除工班排假事件
-export const deleteCrewCalendarEvent = async (eventId: string): Promise<void> => {
-  const current = getLocalData<CrewCalendarEvent[]>(LOCAL_STORAGE_CREW_KEY, sampleCrewEvents);
-  setLocalData(LOCAL_STORAGE_CREW_KEY, current.filter(e => e.id !== eventId));
-
-  if (isFirebaseConfigured()) {
-    try {
-      const ref = doc(db, 'crew_calendar', eventId);
-      await deleteDoc(ref);
-    } catch (e) {
-      console.warn('Firebase delete crew event failed', e);
-    }
-  }
+  return localLogs;
 };

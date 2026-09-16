@@ -11,7 +11,6 @@ import { ExcelImportModal } from './components/inventory/ExcelImportModal';
 import { OrderList } from './components/orders/OrderList';
 import { AddOrderModal } from './components/AddOrderModal';
 import { EditOrderModal } from './components/EditOrderModal';
-import { CrewCalendarView } from './components/calendar/CrewCalendarView';
 import { AuditLogsView } from './components/logs/AuditLogsView';
 import { OptionsManager } from './components/options/OptionsManager';
 
@@ -22,7 +21,6 @@ import {
   saveGlobalOptions, 
   deleteOrder,
   fetchAuditLogs,
-  fetchCrewCalendar
 } from './services/inventoryService';
 import { initialOptions } from './services/mockData';
 import { 
@@ -30,7 +28,6 @@ import {
   MainTab, 
   GlobalOptions, 
   OperationLog, 
-  CrewCalendarEvent, 
   OrderType 
 } from './types';
 
@@ -44,7 +41,6 @@ export default function App() {
   const [records, setRecords] = useState<InventoryRecord[]>([]);
   const [options, setOptions] = useState<GlobalOptions>(initialOptions);
   const [auditLogs, setAuditLogs] = useState<OperationLog[]>([]);
-  const [crewEvents, setCrewEvents] = useState<CrewCalendarEvent[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 篩選與搜尋狀態
@@ -82,16 +78,14 @@ export default function App() {
   const loadAllData = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const [optData, recData, logData, crewData] = await Promise.all([
+      const [optData, recData, logData] = await Promise.all([
         fetchGlobalOptions(),
         fetchInventoryRecords(),
-        fetchAuditLogs(),
-        fetchCrewCalendar()
+        fetchAuditLogs()
       ]);
       setOptions(optData);
       setRecords(recData);
       setAuditLogs(logData);
-      setCrewEvents(crewData);
     } catch (err) {
       console.error('Error loading data:', err);
       showToast('載入資料時發生異常，已啟動離線保護快取', 'info');
@@ -337,17 +331,7 @@ export default function App() {
             />
           )}
 
-          {/* 分頁 5: 工班出勤與排假行事曆 */}
-          {currentTab === 'calendar' && (
-            <CrewCalendarView
-              events={crewEvents}
-              options={options}
-              onRefresh={loadAllData}
-              onShowToast={showToast}
-            />
-          )}
-
-          {/* 分頁 6: 水電常用選項與規格維護 */}
+          {/* 分頁 5: 水電常用選項與規格維護 */}
           {currentTab === 'options' && (
             <OptionsManager
               options={options}
@@ -356,7 +340,7 @@ export default function App() {
             />
           )}
 
-          {/* 分頁 7: 系統操作日誌 */}
+          {/* 分頁 6: 系統操作日誌 */}
           {currentTab === 'logs' && (
             <AuditLogsView
               logs={auditLogs}
@@ -376,7 +360,7 @@ export default function App() {
           setPrefillItem(null);
         }}
         onSuccess={() => {
-          showToast('單據已成功開立並更新庫存', 'success');
+          showToast('單據已成功開立並更新庫存！', 'success');
           loadAllData();
         }}
       />

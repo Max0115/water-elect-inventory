@@ -9,9 +9,12 @@ import {
   Truck, 
   MapPin, 
   ShieldAlert,
-  Save
+  Save,
+  GripVertical,
+  Wand2
 } from 'lucide-react';
 import { GlobalOptions } from '../../types';
+import { sanitizeGlobalOptions, sanitizeItemName } from '../../services/inventoryService';
 
 interface Props {
   options: GlobalOptions;
@@ -24,6 +27,7 @@ export const OptionsManager: React.FC<Props> = ({
   onUpdateOptions,
   onShowToast,
 }) => {
+  // 輸入狀態
   const [newCatName, setNewCatName] = useState('');
   const [newItemName, setNewItemName] = useState<Record<string, string>>({});
   const [newSpec, setNewSpec] = useState('');
@@ -35,7 +39,127 @@ export const OptionsManager: React.FC<Props> = ({
   const [selectedMinStockItem, setSelectedMinStockItem] = useState('');
   const [minStockValue, setMinStockValue] = useState<number>(5);
 
+  // 拖動排序狀態管理
+  const [draggingItem, setDraggingItem] = useState<{ listId: string; index: number } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<{ listId: string; index: number } | null>(null);
+
+  // 拖動分類卡片狀態
+  const [draggingCatIndex, setDraggingCatIndex] = useState<number | null>(null);
+  const [dragOverCatIndex, setDragOverCatIndex] = useState<number | null>(null);
+
   const allItemNames = Object.values(options.categories).flat();
+
+  // 陣列項目重排輔助函數
+  const reorderArray = (list: string[], fromIndex: number, toIndex: number): string[] => {
+    if (fromIndex === toIndex) return list;
+    const result = [...list];
+    const [removed] = result.splice(fromIndex, 1);
+    result.splice(toIndex, 0, removed);
+    return result;
+  };
+
+  // 拖動處理通訊
+  const handleDragStart = (e: React.DragEvent, listId: string, index: number) => {
+    e.stopPropagation();
+    setDraggingItem({ listId, index });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, listId: string, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggingItem?.listId === listId && dragOverIndex?.index !== index) {
+      setDragOverIndex({ listId, index });
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, listId: string, targetIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggingItem || draggingItem.listId !== listId) {
+      setDraggingItem(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const fromIndex = draggingItem.index;
+    setDraggingItem(null);
+    setDragOverIndex(null);
+
+    if (fromIndex === targetIndex) return;
+
+    if (listId === 'specifications') {
+      const updated = reorderArray(options.specifications, fromIndex, targetIndex);
+      onUpdateOptions({ ...options, specifications: updated });
+    } else if (listId === 'units') {
+      const updated = reorderArray(options.units, fromIndex, targetIndex);
+      onUpdateOptions({ ...options, units: updated });
+    } else if (listId === 'suppliers') {
+      const updated = reorderArray(options.suppliers, fromIndex, targetIndex);
+      onUpdateOptions({ ...options, suppliers: updated });
+    } else if (listId === 'locations') {
+      const updated = reorderArray(options.locations, fromIndex, targetIndex);
+      onUpdateOptions({ ...options, locations: updated });
+    } else if (listId.startsWith('cat_items_')) {
+      const catName = listId.replace('cat_items_', '');
+      const currentItems = options.categories[catName] || [];
+      const updated = reorderArray(currentItems, fromIndex, targetIndex);
+      onUpdateOptions({
+        ...options,
+        categories: {
+          ...options.categories,
+          [catName]: updated
+        }
+      });
+    }
+    onShowToast('已更新排列順序', 'info');
+  };
+
+  // 分類卡片拖動排序
+  const handleCategoryDragStart = (index: number) => {
+    setDraggingCatIndex(index);
+  };
+
+  const handleCategoryDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragOverCatIndex !== index) {
+      setDragOverCatIndex(index);
+    }
+  };
+
+  const handleCategoryDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggingCatIndex === null || draggingCatIndex === targetIndex) {
+      setDraggingCatIndex(null);
+      setDragOverCatIndex(null);
+      return;
+    }
+
+    const catEntries = Object.entries(options.categories);
+    const [removed] = catEntries.splice(draggingCatIndex, 1);
+    catEntries.splice(targetIndex, 0, removed);
+
+    const reorderedCategories: Record<string, string[]> = {};
+    catEntries.forEach(([k, v]) => {
+      reorderedCategories[k] = v;
+    });
+
+    onUpdateOptions({
+      ...options,
+      categories: reorderedCategories
+    });
+
+    setDraggingCatIndex(null);
+    setDragOverCatIndex(null);
+    onShowToast('已調整分類先後順序', 'info');
+  };
+
+  // 一鍵清理所有品名中之尺寸規格
+  const handleCleanAllDimensions = () => {
+    const cleaned = sanitizeGlobalOptions(options);
+    onUpdateOptions(cleaned);
+    onShowToast('已全面清除品名中的尺寸標註，統一由規格庫管理！', 'success');
+  };
 
   // 新增分類
   const handleAddCategory = () => {
@@ -63,10 +187,15 @@ export const OptionsManager: React.FC<Props> = ({
     }
   };
 
-  // 新增品名到指定分類
+  // 新增品名（自動過濾尺寸）
   const handleAddItemToCategory = (cat: string) => {
-    const val = (newItemName[cat] || '').trim();
-    if (!val) return;
+    const rawVal = (newItemName[cat] || '').trim();
+    if (!rawVal) return;
+    const val = sanitizeItemName(rawVal);
+    if (!val) {
+      onShowToast('請輸入有效品名', 'error');
+      return;
+    }
     const currentItems = options.categories[cat] || [];
     if (currentItems.includes(val)) {
       onShowToast('該分類下已有相同品名', 'error');
@@ -151,18 +280,72 @@ export const OptionsManager: React.FC<Props> = ({
     onShowToast(`已將 ${selectedMinStockItem} 的安全庫存門檻設為 ${minStockValue}`, 'success');
   };
 
+  // 通用可拖動標籤清單渲染器
+  const renderDraggablePills = (listId: string, items: string[], onRemove: (item: string) => void, colorClass = 'text-white') => {
+    return (
+      <div className="flex flex-wrap gap-1.5 min-h-[36px] p-1 rounded-lg transition-colors">
+        {items.map((it, idx) => {
+          const isDraggingThis = draggingItem?.listId === listId && draggingItem.index === idx;
+          const isOverThis = dragOverIndex?.listId === listId && dragOverIndex.index === idx;
+
+          return (
+            <div
+              key={`${it}_${idx}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, listId, idx)}
+              onDragOver={(e) => handleDragOver(e, listId, idx)}
+              onDrop={(e) => handleDrop(e, listId, idx)}
+              onDragEnd={() => {
+                setDraggingItem(null);
+                setDragOverIndex(null);
+              }}
+              className={`group relative flex items-center bg-[#1E232E] text-xs px-2.5 py-1.5 rounded-lg border border-[#2E3647] cursor-grab active:cursor-grabbing transition-all duration-200 select-none ${colorClass} ${
+                isDraggingThis ? 'opacity-30 scale-95 border-dashed border-cyan-400' : ''
+              } ${
+                isOverThis ? 'border-cyan-400 bg-cyan-950/60 scale-105 shadow-md shadow-cyan-500/20 translate-x-1' : 'hover:border-[#3D475C] hover:bg-[#252C3A]'
+              }`}
+            >
+              <GripVertical size={12} className="text-[#626B7E] group-hover:text-cyan-400 mr-1 shrink-0 transition" />
+              <span className="font-medium">{it}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(it)}
+                className="ml-1.5 text-[#717B8F] hover:text-red-400 transition"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          );
+        })}
+        {items.length === 0 && (
+          <span className="text-[11px] text-[#717B8F] py-1">尚無項目，請在下方新增。</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* 左欄：水電分類與品名管理 */}
+      {/* 左欄：水電分類與品名管理 (品名尺寸全數脫鉤 + 支援拖拽排序) */}
       <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-4 shadow-xs">
-        <div className="flex items-center justify-between pb-2 border-b border-[#282F3E]">
-          <h3 className="font-bold text-white text-sm flex items-center">
-            <Layers size={17} className="mr-2 text-cyan-400" />
-            水電材料分類與品名維護
-          </h3>
-          <span className="text-[11px] text-[#8E96A4]">
-            共 {Object.keys(options.categories).length} 個分類
-          </span>
+        <div className="flex items-center justify-between pb-3 border-b border-[#282F3E]">
+          <div>
+            <h3 className="font-bold text-white text-sm flex items-center">
+              <Layers size={17} className="mr-2 text-cyan-400" />
+              水電材料分類與品名維護
+            </h3>
+            <p className="text-[11px] text-[#8E96A4] mt-0.5">
+              尺寸規格獨立由規格庫挑選；每個品名與分類皆可直接拖動調整先後順序。
+            </p>
+          </div>
+
+          <button
+            onClick={handleCleanAllDimensions}
+            title="一鍵清除所有品名中附帶的幾吋規格文字"
+            className="flex items-center text-xs bg-cyan-950/70 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 px-2.5 py-1.5 rounded-lg transition"
+          >
+            <Wand2 size={13} className="mr-1 text-cyan-400" /> 一鍵去尺寸
+          </button>
         </div>
 
         {/* 新增分類列 */}
@@ -181,70 +364,129 @@ export const OptionsManager: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* 分類與品名清單區塊 */}
-        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-          {Object.entries(options.categories).map(([cat, items]) => (
-            <div key={cat} className="p-3.5 bg-[#181C25] rounded-xl border border-[#282F3E] space-y-2.5">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-cyan-300 text-sm">{cat}</span>
-                <button
-                  onClick={() => handleDeleteCategory(cat)}
-                  className="text-[#717B8F] hover:text-red-400 text-xs flex items-center transition p-1"
-                  title="刪除此分類"
-                >
-                  <Trash2 size={13} className="mr-1" /> 刪除分類
-                </button>
-              </div>
+        {/* 分類清單區塊 (分類卡片可拖動排序) */}
+        <div className="space-y-3.5 max-h-[640px] overflow-y-auto pr-1">
+          {Object.entries(options.categories).map(([cat, items], catIdx) => {
+            const isCatDragging = draggingCatIndex === catIdx;
+            const isCatOver = dragOverCatIndex === catIdx;
 
-              {/* 品名膠囊 */}
-              <div className="flex flex-wrap gap-1.5">
-                {items.map(it => (
-                  <span
-                    key={it}
-                    className="flex items-center bg-[#222734] text-xs px-2.5 py-1 rounded-md text-white border border-[#2D3546]"
+            return (
+              <div
+                key={cat}
+                onDragOver={(e) => handleCategoryDragOver(e, catIdx)}
+                onDrop={(e) => handleCategoryDrop(e, catIdx)}
+                className={`p-3.5 bg-[#181C25] rounded-xl border border-[#282F3E] space-y-2.5 transition-all duration-200 ${
+                  isCatDragging ? 'opacity-30 border-dashed border-cyan-400' : ''
+                } ${
+                  isCatOver ? 'border-cyan-500 bg-[#1D2230] scale-[1.01] shadow-lg shadow-cyan-500/10' : ''
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <div 
+                    draggable
+                    onDragStart={() => handleCategoryDragStart(catIdx)}
+                    onDragEnd={() => {
+                      setDraggingCatIndex(null);
+                      setDragOverCatIndex(null);
+                    }}
+                    className="flex items-center space-x-2 cursor-grab active:cursor-grabbing group select-none"
                   >
-                    {it}
-                    <button
-                      onClick={() => handleRemoveItem(cat, it)}
-                      className="ml-1.5 text-[#717B8F] hover:text-red-400 transition"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-                {items.length === 0 && (
-                  <span className="text-[11px] text-[#717B8F]">尚無品名，請在下方輸入新增。</span>
-                )}
-              </div>
+                    <GripVertical size={14} className="text-[#626B7E] group-hover:text-cyan-400 transition" />
+                    <span className="font-bold text-cyan-300 text-sm">{cat}</span>
+                    <span className="text-[10px] text-[#717B8F]">({items.length} 項品名)</span>
+                  </div>
 
-              {/* 新增品名欄位 */}
-              <div className="flex gap-2 pt-1 border-t border-[#232936]">
-                <input
-                  placeholder={`新增品名至 ${cat}...`}
-                  value={newItemName[cat] || ''}
-                  onChange={(e) => setNewItemName({ ...newItemName, [cat]: e.target.value })}
-                  className="flex-1 bg-[#1F2430] border border-[#2D3546] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                />
-                <button
-                  onClick={() => handleAddItemToCategory(cat)}
-                  className="bg-[#262C3A] hover:bg-[#323A4C] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
-                >
-                  + 品名
-                </button>
+                  <button
+                    onClick={() => handleDeleteCategory(cat)}
+                    className="text-[#717B8F] hover:text-red-400 text-xs flex items-center transition p-1"
+                    title="刪除此分類"
+                  >
+                    <Trash2 size={13} className="mr-1" /> 刪除分類
+                  </button>
+                </div>
+
+                {/* 品名膠囊列表 (可拖動排序) */}
+                {renderDraggablePills(`cat_items_${cat}`, items, (it) => handleRemoveItem(cat, it), 'text-white')}
+
+                {/* 新增品名欄位 */}
+                <div className="flex gap-2 pt-1 border-t border-[#232936]">
+                  <input
+                    placeholder={`新增品名至 ${cat} (無需填幾吋)...`}
+                    value={newItemName[cat] || ''}
+                    onChange={(e) => setNewItemName({ ...newItemName, [cat]: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddItemToCategory(cat);
+                      }
+                    }}
+                    className="flex-1 bg-[#1F2430] border border-[#2D3546] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  />
+                  <button
+                    onClick={() => handleAddItemToCategory(cat)}
+                    className="bg-[#262C3A] hover:bg-[#323A4C] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                  >
+                    + 品名
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* 右欄：規格、單位、案場庫位、材料商與安全庫存 */}
+      {/* 右欄：規格庫 (全規格集中)、單位、案場庫位、材料商與安全庫存 */}
       <div className="space-y-4">
+        {/* 管件與另件常用規格尺寸 (全尺寸由此挑選，可拖動調整前後順序) */}
+        <div className="bg-[#202532] p-5 rounded-2xl border border-cyan-500/30 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-[#282F3E]">
+            <div>
+              <h3 className="font-bold text-white text-sm flex items-center">
+                <Ruler size={16} className="mr-2 text-cyan-400" />
+                管件與另件常用規格尺寸 (統一尺寸庫)
+              </h3>
+              <p className="text-[11px] text-cyan-300/80 mt-0.5">
+                開單時尺寸一律自此規格清單中選取；支援滑鼠拖動排序前後順位。
+              </p>
+            </div>
+            <span className="text-[11px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40 font-mono">
+              {options.specifications.length} 種規格
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              placeholder="新增規格尺寸 (例如: 1/2, 3/4, 1-1/2, 2.0mm)..."
+              value={newSpec}
+              onChange={(e) => setNewSpec(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddSpec();
+                }
+              }}
+              className="flex-1 bg-[#161922] border border-[#2E3647] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+            />
+            <button
+              onClick={handleAddSpec}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold"
+            >
+              新增規格
+            </button>
+          </div>
+
+          {/* 可拖曳之規格列表 */}
+          {renderDraggablePills('specifications', options.specifications, (s) => {
+            onUpdateOptions({ ...options, specifications: options.specifications.filter(x => x !== s) });
+          }, 'text-cyan-300 font-mono')}
+        </div>
+
         {/* 自訂安全存量門檻 */}
         <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
           <div className="flex items-center justify-between pb-2 border-b border-[#282F3E]">
             <h3 className="font-bold text-white text-sm flex items-center">
               <ShieldAlert size={17} className="mr-2 text-amber-400" />
-              自訂安全庫存警示門檻 (Min Stock Threshold)
+              自訂安全庫存警示門檻 (Min Stock)
             </h3>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -256,7 +498,7 @@ export const OptionsManager: React.FC<Props> = ({
               }}
               className="flex-1 bg-[#161922] border border-[#2E3647] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
             >
-              <option value="">-- 請選擇欲設定安全存量的品名 --</option>
+              <option value="">-- 請選擇欲設定安全存量的材料品名 --</option>
               {allItemNames.map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -280,7 +522,6 @@ export const OptionsManager: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 現有自訂門檻快速預覽 */}
           {options.minStockMap && Object.keys(options.minStockMap).length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {Object.entries(options.minStockMap).map(([name, threshold]) => (
@@ -302,47 +543,15 @@ export const OptionsManager: React.FC<Props> = ({
           )}
         </div>
 
-        {/* 水電專用規格 */}
+        {/* 計量單位 (可拖曳排序) */}
         <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
-          <h3 className="font-bold text-white text-sm flex items-center">
-            <Ruler size={16} className="mr-2 text-cyan-400" />
-            管件與另件常用規格尺寸
-          </h3>
-          <div className="flex gap-2">
-            <input
-              placeholder="新增規格尺寸 (例如: 3/8, 1/4, 2-1/2)..."
-              value={newSpec}
-              onChange={(e) => setNewSpec(e.target.value)}
-              className="flex-1 bg-[#161922] border border-[#2E3647] rounded-lg px-3 py-1.5 text-xs text-white"
-            />
-            <button
-              onClick={handleAddSpec}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold"
-            >
-              新增規格
-            </button>
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-white text-sm flex items-center">
+              <Scale size={16} className="mr-2 text-cyan-400" />
+              庫存計量單位 (可拖曳排序)
+            </h3>
+            <span className="text-[10px] text-[#717B8F]">拖曳調整順序</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {options.specifications.map(s => (
-              <span key={s} className="flex items-center bg-[#181C25] text-xs px-2.5 py-1 rounded-md border border-[#282F3E] text-cyan-200">
-                {s}
-                <button
-                  onClick={() => onUpdateOptions({ ...options, specifications: options.specifications.filter(x => x !== s) })}
-                  className="ml-1.5 text-[#717B8F] hover:text-red-400"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* 計量單位 */}
-        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
-          <h3 className="font-bold text-white text-sm flex items-center">
-            <Scale size={16} className="mr-2 text-cyan-400" />
-            庫存計量單位
-          </h3>
           <div className="flex gap-2">
             <input
               placeholder="新增單位 (例如: 捆, 軸, 套)..."
@@ -357,27 +566,20 @@ export const OptionsManager: React.FC<Props> = ({
               新增單位
             </button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {options.units.map(u => (
-              <span key={u} className="flex items-center bg-[#181C25] text-xs px-2.5 py-1 rounded-md border border-[#282F3E] text-white">
-                {u}
-                <button
-                  onClick={() => onUpdateOptions({ ...options, units: options.units.filter(x => x !== u) })}
-                  className="ml-1.5 text-[#717B8F] hover:text-red-400"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
+          {renderDraggablePills('units', options.units, (u) => {
+            onUpdateOptions({ ...options, units: options.units.filter(x => x !== u) });
+          })}
         </div>
 
-        {/* 材料商與工班 */}
+        {/* 常用材料商與工班 (可拖曳排序) */}
         <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
-          <h3 className="font-bold text-white text-sm flex items-center">
-            <Truck size={16} className="mr-2 text-cyan-400" />
-            常用材料商與領料工班
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-white text-sm flex items-center">
+              <Truck size={16} className="mr-2 text-cyan-400" />
+              常用材料商與領料工班 (可拖曳排序)
+            </h3>
+            <span className="text-[10px] text-[#717B8F]">拖曳調整順序</span>
+          </div>
           <div className="flex gap-2">
             <input
               placeholder="新增廠商或工班名稱..."
@@ -392,27 +594,20 @@ export const OptionsManager: React.FC<Props> = ({
               新增
             </button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {options.suppliers.map(sup => (
-              <span key={sup} className="flex items-center bg-[#181C25] text-xs px-2.5 py-1 rounded-md border border-[#282F3E] text-cyan-300">
-                {sup}
-                <button
-                  onClick={() => onUpdateOptions({ ...options, suppliers: options.suppliers.filter(x => x !== sup) })}
-                  className="ml-1.5 text-[#717B8F] hover:text-red-400"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
+          {renderDraggablePills('suppliers', options.suppliers, (sup) => {
+            onUpdateOptions({ ...options, suppliers: options.suppliers.filter(x => x !== sup) });
+          }, 'text-cyan-200')}
         </div>
 
-        {/* 案場庫位 */}
+        {/* 施工案場與庫位 (可拖曳排序) */}
         <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
-          <h3 className="font-bold text-white text-sm flex items-center">
-            <MapPin size={16} className="mr-2 text-cyan-400" />
-            施工案場與庫位地點
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-white text-sm flex items-center">
+              <MapPin size={16} className="mr-2 text-cyan-400" />
+              施工案場與庫位地點 (可拖曳排序)
+            </h3>
+            <span className="text-[10px] text-[#717B8F]">拖曳調整順序</span>
+          </div>
           <div className="flex gap-2">
             <input
               placeholder="新增庫位 (例如: 頂樓水箱區, C棟B1配電室)..."
@@ -427,22 +622,11 @@ export const OptionsManager: React.FC<Props> = ({
               新增地點
             </button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {options.locations.map(loc => (
-              <span key={loc} className="flex items-center bg-[#181C25] text-xs px-2.5 py-1 rounded-md border border-[#282F3E] text-white">
-                {loc}
-                <button
-                  onClick={() => onUpdateOptions({ ...options, locations: options.locations.filter(x => x !== loc) })}
-                  className="ml-1.5 text-[#717B8F] hover:text-red-400"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
+          {renderDraggablePills('locations', options.locations, (loc) => {
+            onUpdateOptions({ ...options, locations: options.locations.filter(x => x !== loc) });
+          })}
         </div>
       </div>
     </div>
   );
 };
-

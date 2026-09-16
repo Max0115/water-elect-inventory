@@ -36,7 +36,6 @@ export const Header: React.FC<Props> = ({
       case 'in_orders': return '進貨單據管理';
       case 'out_orders': return '現場領料出庫';
       case 'scrap': return '工地短管 / 餘料暫存';
-      case 'calendar': return '工班出勤與排假行事曆';
       case 'options': return '水電常用規格與選項維護';
       case 'logs': return '系統操作軌跡稽核日誌';
       default: return '庫存系統';

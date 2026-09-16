@@ -5,7 +5,6 @@ export type MainTab =
   | 'in_orders'
   | 'out_orders'
   | 'scrap'
-  | 'calendar'
   | 'options'
   | 'logs'
   | 'settings';
@@ -65,14 +64,4 @@ export interface OperationLog {
   userEmail: string;
   timestamp: any;
   details?: Record<string, any>;
-}
-
-export interface CrewCalendarEvent {
-  id: string;
-  date: string; // YYYY-MM-DD
-  crewName: string;
-  type: 'WORK' | 'LEAVE' | 'OVERTIME' | 'SITE_DUTY';
-  siteLocation: string;
-  workDescription: string;
-  notes?: string;
 }
