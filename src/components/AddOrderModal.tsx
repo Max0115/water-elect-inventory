@@ -63,8 +63,8 @@ export const AddOrderModal: React.FC<Props> = ({
           type, 
           category: firstCat, 
           itemName: firstItem, 
-          specification: options.specifications[0] || '1"', 
-          quantity: 10, 
+          specification: '', 
+          quantity: '' as any, 
           unit: options.units[0] || '只', 
           location: options.locations[0] || '工務所總倉' 
         }
@@ -84,8 +84,8 @@ export const AddOrderModal: React.FC<Props> = ({
         type, 
         category: firstCat, 
         itemName: options.categories[firstCat]?.[0] || '', 
-        specification: options.specifications[0] || '', 
-        quantity: 1, 
+        specification: '', 
+        quantity: '' as any, 
         unit: options.units[0] || '只', 
         location: type === 'TRANSFER' ? sourceLocation : (options.locations[0] || ''), 
         targetLocation: type === 'TRANSFER' ? targetLocation : undefined,
@@ -105,6 +105,7 @@ export const AddOrderModal: React.FC<Props> = ({
     try {
       const payload = items.map(it => ({
         ...it,
+        quantity: Number(it.quantity) || 1,
         supplier,
         location: type === 'TRANSFER' ? sourceLocation : it.location,
         targetLocation: type === 'TRANSFER' ? targetLocation : undefined,
@@ -300,10 +301,11 @@ export const AddOrderModal: React.FC<Props> = ({
                         type="number" 
                         min="1"
                         placeholder="數量"
-                        value={item.quantity} 
+                        value={item.quantity === ('' as any) ? '' : item.quantity} 
                         onChange={(e) => {
+                          const val = e.target.value;
                           const newItems = [...items];
-                          newItems[idx].quantity = Number(e.target.value) || 1;
+                          newItems[idx].quantity = val === '' ? ('' as any) : Number(val);
                           setItems(newItems);
                         }}
                         className="w-16 bg-[#202532] border border-[#2E3647] rounded-lg p-1.5 text-xs text-white font-mono text-right"

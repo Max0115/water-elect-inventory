@@ -32,6 +32,19 @@ import {
 } from './types';
 
 export default function App() {
+  // 主題模式 (白天強光 vs 暗黑夜間)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('water_elect_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('water_elect_theme', next);
+      return next;
+    });
+  }, []);
+
   // 導覽分頁與當前案場
   const [currentTab, setCurrentTab] = useState<MainTab>('inventory');
   const [selectedLocation, setSelectedLocation] = useState<string>('全部地點');
@@ -232,7 +245,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-[#151821] text-[#E1E4EA] overflow-hidden font-sans select-none">
+    <div className={`flex h-screen overflow-hidden font-sans select-none transition-colors duration-200 theme-${theme} ${theme === 'light' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'bg-[#151821] text-[#E1E4EA]'}`}>
       {/* 側邊導覽列 (含手機抽屜) */}
       <Sidebar
         currentTab={currentTab}
@@ -259,6 +272,8 @@ export default function App() {
           onRefresh={loadAllData}
           onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
           isRefreshing={isRefreshing}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
 
         {/* 視圖內容容器 */}

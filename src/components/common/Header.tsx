@@ -5,7 +5,9 @@ import {
   FileSpreadsheet, 
   UploadCloud, 
   RefreshCw,
-  MapPin
+  MapPin,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { MainTab } from '../../types';
 
@@ -18,6 +20,8 @@ interface Props {
   onRefresh: () => void;
   onOpenMobileMenu: () => void;
   isRefreshing?: boolean;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
 }
 
 export const Header: React.FC<Props> = ({
@@ -29,6 +33,8 @@ export const Header: React.FC<Props> = ({
   onRefresh,
   onOpenMobileMenu,
   isRefreshing,
+  theme,
+  onToggleTheme,
 }) => {
   const getTabTitle = (tab: MainTab) => {
     switch (tab) {
@@ -43,7 +49,7 @@ export const Header: React.FC<Props> = ({
   };
 
   return (
-    <header className="h-16 border-b border-[#262B37] px-4 md:px-6 flex items-center justify-between shrink-0 bg-[#191D26] text-white">
+    <header className="h-16 border-b border-[#262B37] px-4 md:px-6 flex items-center justify-between shrink-0 bg-[#191D26] text-white transition-colors">
       {/* 左側：漢堡按鈕 + 標題與庫位 */}
       <div className="flex items-center space-x-3 md:space-x-4">
         <button
@@ -66,6 +72,25 @@ export const Header: React.FC<Props> = ({
 
       {/* 右側：動作按鈕群 */}
       <div className="flex items-center space-x-2 md:space-x-3">
+        {/* 亮暗主題切換按鈕 */}
+        <button
+          onClick={onToggleTheme}
+          title={theme === 'dark' ? '切換至戶外強光高對比白天模式' : '切換至暗黑夜間模式'}
+          className="flex items-center text-xs bg-[#222734] hover:bg-[#2C3243] text-gray-300 hover:text-white border border-[#30384A] px-2.5 sm:px-3 py-2 rounded-lg transition"
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun size={15} className="text-amber-400 sm:mr-1.5" />
+              <span className="hidden sm:inline">戶外強光</span>
+            </>
+          ) : (
+            <>
+              <Moon size={15} className="text-cyan-600 sm:mr-1.5" />
+              <span className="hidden sm:inline">暗色模式</span>
+            </>
+          )}
+        </button>
+
         {/* 重新整理 */}
         <button
           onClick={onRefresh}
@@ -109,4 +134,3 @@ export const Header: React.FC<Props> = ({
     </header>
   );
 };
-

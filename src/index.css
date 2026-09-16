@@ -4,7 +4,88 @@
 
 body {
   margin: 0;
-  background-color: #21252D;
-  color: #E1E4EA;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* 🌙 暗黑預設主題 */
+.theme-dark {
+  color-scheme: dark;
+  background-color: #151821;
+  color: #E1E4EA;
+}
+
+/* ☀️ 工地強光/高對比白天主題 (Outdoor Daylight Mode) */
+.theme-light {
+  color-scheme: light;
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
+
+.theme-light .bg-\[\#151821\] { background-color: #F1F5F9 !important; }
+.theme-light .bg-\[\#151820\], 
+.theme-light .bg-\[\#181B22\], 
+.theme-light .bg-\[\#12141B\] { background-color: #FFFFFF !important; }
+
+.theme-light .bg-\[\#191D26\], 
+.theme-light .bg-\[\#1E222B\], 
+.theme-light .bg-\[\#1D212A\], 
+.theme-light .bg-\[\#181C25\] { background-color: #F8FAFC !important; }
+
+.theme-light .bg-\[\#202532\], 
+.theme-light .bg-\[\#242833\] { 
+  background-color: #FFFFFF !important; 
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.theme-light .bg-\[\#161922\], 
+.theme-light .bg-\[\#1D212C\], 
+.theme-light .bg-\[\#1F2430\], 
+.theme-light .bg-\[\#1E232E\],
+.theme-light .bg-\[\#222734\],
+.theme-light .bg-\[\#242938\],
+.theme-light .bg-\[\#282F3F\],
+.theme-light .bg-\[\#262C3A\] { background-color: #EDF2F7 !important; }
+
+.theme-light .border-\[\#262B37\], 
+.theme-light .border-\[\#2B3242\], 
+.theme-light .border-\[\#2A3141\], 
+.theme-light .border-\[\#2E3647\], 
+.theme-light .border-\[\#282F3E\], 
+.theme-light .border-\[\#28303F\],
+.theme-light .border-\[\#2F3442\],
+.theme-light .border-\[\#30384A\],
+.theme-light .border-\[\#2D3546\],
+.theme-light .border-\[\#232936\],
+.theme-light .border-\[\#2A3243\],
+.theme-light .border-\[\#2F374A\] { border-color: #E2E8F0 !important; }
+
+.theme-light .text-white { color: #0F172A !important; }
+.theme-light .text-\[\#E1E4EA\] { color: #1E293B !important; }
+.theme-light .text-\[\#A1AAB9\] { color: #334155 !important; }
+.theme-light .text-\[\#8A93A6\], 
+.theme-light .text-\[\#8E96A4\], 
+.theme-light .text-\[\#9BA3B4\], 
+.theme-light .text-\[\#717B8F\], 
+.theme-light .text-\[\#7E889B\],
+.theme-light .text-\[\#7A8293\],
+.theme-light .text-\[\#626B7E\] { color: #64748B !important; }
+
+.theme-light input, 
+.theme-light select { 
+  background-color: #FFFFFF !important; 
+  color: #0F172A !important; 
+  border-color: #CBD5E1 !important; 
+}
+
+.theme-light select option {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+.theme-light .hover\:bg-\[\#252B3A\]:hover,
+.theme-light .hover\:bg-\[\#282F3F\]:hover,
+.theme-light .hover\:bg-\[\#2C3243\]:hover,
+.theme-light .hover\:bg-\[\#1E232E\]:hover {
+  background-color: #F1F5F9 !important;
 }

@@ -39,105 +39,128 @@ export const OptionsManager: React.FC<Props> = ({
   const [selectedMinStockItem, setSelectedMinStockItem] = useState('');
   const [minStockValue, setMinStockValue] = useState<number>(5);
 
-  // 拖動排序狀態管理
+  // 標籤膠囊拖動排序狀態 (精準插入指標)
   const [draggingItem, setDraggingItem] = useState<{ listId: string; index: number } | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<{ listId: string; index: number } | null>(null);
+  const [dragTarget, setDragTarget] = useState<{ listId: string; insertIndex: number } | null>(null);
 
-  // 拖動分類卡片狀態
+  // 分類卡片拖動排序狀態 (精準水平插入指示線)
   const [draggingCatIndex, setDraggingCatIndex] = useState<number | null>(null);
-  const [dragOverCatIndex, setDragOverCatIndex] = useState<number | null>(null);
+  const [dragCatTargetIndex, setDragCatTargetIndex] = useState<number | null>(null);
 
   const allItemNames = Object.values(options.categories).flat();
 
-  // 陣列項目重排輔助函數
-  const reorderArray = (list: string[], fromIndex: number, toIndex: number): string[] => {
-    if (fromIndex === toIndex) return list;
-    const result = [...list];
-    const [removed] = result.splice(fromIndex, 1);
-    result.splice(toIndex, 0, removed);
-    return result;
-  };
-
-  // 拖動處理通訊
-  const handleDragStart = (e: React.DragEvent, listId: string, index: number) => {
+  // 標籤拖動開始
+  const handlePillDragStart = (e: React.DragEvent, listId: string, index: number) => {
     e.stopPropagation();
     setDraggingItem({ listId, index });
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent, listId: string, index: number) => {
+  // 標籤拖動經過目標：以滑鼠在元素的左半/右半精確計算插入點
+  const handlePillDragOver = (e: React.DragEvent, listId: string, idx: number) => {
     e.preventDefault();
     e.stopPropagation();
-    if (draggingItem?.listId === listId && dragOverIndex?.index !== index) {
-      setDragOverIndex({ listId, index });
+    if (!draggingItem || draggingItem.listId !== listId) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isAfter = (e.clientX - rect.left) > (rect.width / 2);
+    const targetIndex = isAfter ? idx + 1 : idx;
+
+    if (!dragTarget || dragTarget.listId !== listId || dragTarget.insertIndex !== targetIndex) {
+      setDragTarget({ listId, insertIndex: targetIndex });
     }
   };
 
-  const handleDrop = (e: React.DragEvent, listId: string, targetIndex: number) => {
+  // 標籤放置落下 (精準插入至指定位置)
+  const handlePillDrop = (e: React.DragEvent, listId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!draggingItem || draggingItem.listId !== listId) {
+    if (!draggingItem || !dragTarget || draggingItem.listId !== listId) {
       setDraggingItem(null);
-      setDragOverIndex(null);
+      setDragTarget(null);
       return;
     }
 
-    const fromIndex = draggingItem.index;
+    const from = draggingItem.index;
+    const to = dragTarget.insertIndex;
     setDraggingItem(null);
-    setDragOverIndex(null);
+    setDragTarget(null);
 
-    if (fromIndex === targetIndex) return;
+    if (from === to || from === to - 1) return;
+
+    const reorder = (origList: string[]) => {
+      const list = [...origList];
+      const [item] = list.splice(from, 1);
+      const target = from < to ? to - 1 : to;
+      list.splice(target, 0, item);
+      return list;
+    };
 
     if (listId === 'specifications') {
-      const updated = reorderArray(options.specifications, fromIndex, targetIndex);
-      onUpdateOptions({ ...options, specifications: updated });
+      onUpdateOptions({ ...options, specifications: reorder(options.specifications) });
     } else if (listId === 'units') {
-      const updated = reorderArray(options.units, fromIndex, targetIndex);
-      onUpdateOptions({ ...options, units: updated });
+      onUpdateOptions({ ...options, units: reorder(options.units) });
     } else if (listId === 'suppliers') {
-      const updated = reorderArray(options.suppliers, fromIndex, targetIndex);
-      onUpdateOptions({ ...options, suppliers: updated });
+      onUpdateOptions({ ...options, suppliers: reorder(options.suppliers) });
     } else if (listId === 'locations') {
-      const updated = reorderArray(options.locations, fromIndex, targetIndex);
-      onUpdateOptions({ ...options, locations: updated });
+      onUpdateOptions({ ...options, locations: reorder(options.locations) });
     } else if (listId.startsWith('cat_items_')) {
       const catName = listId.replace('cat_items_', '');
       const currentItems = options.categories[catName] || [];
-      const updated = reorderArray(currentItems, fromIndex, targetIndex);
       onUpdateOptions({
         ...options,
         categories: {
           ...options.categories,
-          [catName]: updated
+          [catName]: reorder(currentItems)
         }
       });
     }
-    onShowToast('已更新排列順序', 'info');
+    onShowToast('已調整排列順序', 'info');
   };
 
-  // 分類卡片拖動排序
-  const handleCategoryDragStart = (index: number) => {
+  // 分類卡片拖動開始
+  const handleCategoryDragStart = (e: React.DragEvent, index: number) => {
+    e.stopPropagation();
     setDraggingCatIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleCategoryDragOver = (e: React.DragEvent, index: number) => {
+  // 分類卡片拖動經過：以滑鼠在上半/下半精確計算插入點
+  const handleCategoryDragOver = (e: React.DragEvent, catIdx: number) => {
     e.preventDefault();
-    if (dragOverCatIndex !== index) {
-      setDragOverCatIndex(index);
+    e.stopPropagation();
+    if (draggingCatIndex === null) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isAfter = (e.clientY - rect.top) > (rect.height / 2);
+    const target = isAfter ? catIdx + 1 : catIdx;
+
+    if (dragCatTargetIndex !== target) {
+      setDragCatTargetIndex(target);
     }
   };
 
-  const handleCategoryDrop = (e: React.DragEvent, targetIndex: number) => {
+  // 分類卡片放置落下
+  const handleCategoryDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (draggingCatIndex === null || draggingCatIndex === targetIndex) {
+    e.stopPropagation();
+    if (draggingCatIndex === null || dragCatTargetIndex === null) {
       setDraggingCatIndex(null);
-      setDragOverCatIndex(null);
+      setDragCatTargetIndex(null);
       return;
     }
 
+    const from = draggingCatIndex;
+    const to = dragCatTargetIndex;
+    setDraggingCatIndex(null);
+    setDragCatTargetIndex(null);
+
+    if (from === to || from === to - 1) return;
+
     const catEntries = Object.entries(options.categories);
-    const [removed] = catEntries.splice(draggingCatIndex, 1);
-    catEntries.splice(targetIndex, 0, removed);
+    const [removed] = catEntries.splice(from, 1);
+    const target = from < to ? to - 1 : to;
+    catEntries.splice(target, 0, removed);
 
     const reorderedCategories: Record<string, string[]> = {};
     catEntries.forEach(([k, v]) => {
@@ -149,8 +172,6 @@ export const OptionsManager: React.FC<Props> = ({
       categories: reorderedCategories
     });
 
-    setDraggingCatIndex(null);
-    setDragOverCatIndex(null);
     onShowToast('已調整分類先後順序', 'info');
   };
 
@@ -280,49 +301,74 @@ export const OptionsManager: React.FC<Props> = ({
     onShowToast(`已將 ${selectedMinStockItem} 的安全庫存門檻設為 ${minStockValue}`, 'success');
   };
 
-  // 通用可拖動標籤清單渲染器
+  // 通用可拖動標籤清單渲染器 (附帶高辨識度垂直霓虹光插入線)
   const renderDraggablePills = (listId: string, items: string[], onRemove: (item: string) => void, colorClass = 'text-white') => {
     return (
-      <div className="flex flex-wrap gap-1.5 min-h-[36px] p-1 rounded-lg transition-colors">
+      <div 
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (items.length === 0 && draggingItem?.listId === listId) {
+            setDragTarget({ listId, insertIndex: 0 });
+          }
+        }}
+        onDrop={(e) => handlePillDrop(e, listId)}
+        className="flex flex-wrap items-center gap-1.5 min-h-[42px] p-1.5 rounded-xl transition-all"
+      >
         {items.map((it, idx) => {
           const isDraggingThis = draggingItem?.listId === listId && draggingItem.index === idx;
-          const isOverThis = dragOverIndex?.listId === listId && dragOverIndex.index === idx;
+          const isInsertBeforeThis = dragTarget?.listId === listId && dragTarget.insertIndex === idx;
 
           return (
-            <div
-              key={`${it}_${idx}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, listId, idx)}
-              onDragOver={(e) => handleDragOver(e, listId, idx)}
-              onDrop={(e) => handleDrop(e, listId, idx)}
-              onDragEnd={() => {
-                setDraggingItem(null);
-                setDragOverIndex(null);
-              }}
-              className={`group relative flex items-center bg-[#1E232E] text-xs px-2.5 py-1.5 rounded-lg border border-[#2E3647] cursor-grab active:cursor-grabbing transition-all duration-200 select-none ${colorClass} ${
-                isDraggingThis ? 'opacity-30 scale-95 border-dashed border-cyan-400' : ''
-              } ${
-                isOverThis ? 'border-cyan-400 bg-cyan-950/60 scale-105 shadow-md shadow-cyan-500/20 translate-x-1' : 'hover:border-[#3D475C] hover:bg-[#252C3A]'
-              }`}
-            >
-              <GripVertical size={12} className="text-[#626B7E] group-hover:text-cyan-400 mr-1 shrink-0 transition" />
-              <span className="font-medium">{it}</span>
-              <button
-                type="button"
-                onClick={() => onRemove(it)}
-                className="ml-1.5 text-[#717B8F] hover:text-red-400 transition"
+            <React.Fragment key={`${it}_${idx}`}>
+              {/* 精準插入光束指示針 (前) */}
+              {isInsertBeforeThis && (
+                <div className="flex items-center self-stretch mx-0.5 animate-pulse">
+                  <div className="w-1.5 h-7 bg-gradient-to-b from-cyan-300 via-cyan-400 to-blue-500 rounded-full shadow-[0_0_12px_#22d3ee] ring-2 ring-cyan-400/60" />
+                </div>
+              )}
+
+              {/* 膠囊本體 */}
+              <div
+                draggable
+                onDragStart={(e) => handlePillDragStart(e, listId, idx)}
+                onDragOver={(e) => handlePillDragOver(e, listId, idx)}
+                onDragEnd={() => {
+                  setDraggingItem(null);
+                  setDragTarget(null);
+                }}
+                className={`group relative flex items-center bg-[#1E232E] text-xs px-2.5 py-1.5 rounded-lg border border-[#2E3647] cursor-grab active:cursor-grabbing transition-all duration-150 select-none ${colorClass} ${
+                  isDraggingThis ? 'opacity-25 scale-90 border-dashed border-cyan-400 bg-cyan-950/30' : 'hover:border-cyan-500/50 hover:bg-[#252C3A]'
+                }`}
               >
-                <X size={12} />
-              </button>
-            </div>
+                <GripVertical size={13} className="text-[#626B7E] group-hover:text-cyan-400 mr-1 shrink-0 transition" />
+                <span className="font-medium tracking-wide">{it}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemove(it)}
+                  className="ml-1.5 text-[#717B8F] hover:text-red-400 transition"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </React.Fragment>
           );
         })}
+
+        {/* 若插入點在最末端 */}
+        {dragTarget?.listId === listId && dragTarget.insertIndex === items.length && (
+          <div className="flex items-center self-stretch mx-0.5 animate-pulse">
+            <div className="w-1.5 h-7 bg-gradient-to-b from-cyan-300 via-cyan-400 to-blue-500 rounded-full shadow-[0_0_12px_#22d3ee] ring-2 ring-cyan-400/60" />
+          </div>
+        )}
+
         {items.length === 0 && (
           <span className="text-[11px] text-[#717B8F] py-1">尚無項目，請在下方新增。</span>
         )}
       </div>
     );
   };
+
+  const catEntries = Object.entries(options.categories);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -364,74 +410,90 @@ export const OptionsManager: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* 分類清單區塊 (分類卡片可拖動排序) */}
-        <div className="space-y-3.5 max-h-[640px] overflow-y-auto pr-1">
-          {Object.entries(options.categories).map(([cat, items], catIdx) => {
+        {/* 分類清單區塊 (分類卡片支援精準水平指示光束拖曳排序) */}
+        <div 
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleCategoryDrop}
+          className="space-y-3.5 max-h-[640px] overflow-y-auto pr-1"
+        >
+          {catEntries.map(([cat, items], catIdx) => {
             const isCatDragging = draggingCatIndex === catIdx;
-            const isCatOver = dragOverCatIndex === catIdx;
+            const isInsertBeforeCat = dragCatTargetIndex === catIdx;
 
             return (
-              <div
-                key={cat}
-                onDragOver={(e) => handleCategoryDragOver(e, catIdx)}
-                onDrop={(e) => handleCategoryDrop(e, catIdx)}
-                className={`p-3.5 bg-[#181C25] rounded-xl border border-[#282F3E] space-y-2.5 transition-all duration-200 ${
-                  isCatDragging ? 'opacity-30 border-dashed border-cyan-400' : ''
-                } ${
-                  isCatOver ? 'border-cyan-500 bg-[#1D2230] scale-[1.01] shadow-lg shadow-cyan-500/10' : ''
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <div 
-                    draggable
-                    onDragStart={() => handleCategoryDragStart(catIdx)}
-                    onDragEnd={() => {
-                      setDraggingCatIndex(null);
-                      setDragOverCatIndex(null);
-                    }}
-                    className="flex items-center space-x-2 cursor-grab active:cursor-grabbing group select-none"
-                  >
-                    <GripVertical size={14} className="text-[#626B7E] group-hover:text-cyan-400 transition" />
-                    <span className="font-bold text-cyan-300 text-sm">{cat}</span>
-                    <span className="text-[10px] text-[#717B8F]">({items.length} 項品名)</span>
+              <React.Fragment key={cat}>
+                {/* 分類卡片插入指示線 (前) */}
+                {isInsertBeforeCat && (
+                  <div className="my-2 flex items-center justify-center animate-pulse">
+                    <div className="h-2 w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent rounded-full shadow-[0_0_15px_#22d3ee] ring-2 ring-cyan-400/50" />
+                  </div>
+                )}
+
+                <div
+                  onDragOver={(e) => handleCategoryDragOver(e, catIdx)}
+                  className={`p-3.5 bg-[#181C25] rounded-xl border border-[#282F3E] space-y-2.5 transition-all duration-150 ${
+                    isCatDragging ? 'opacity-25 border-dashed border-cyan-400 bg-cyan-950/20' : ''
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <div 
+                      draggable
+                      onDragStart={(e) => handleCategoryDragStart(e, catIdx)}
+                      onDragEnd={() => {
+                        setDraggingCatIndex(null);
+                        setDragCatTargetIndex(null);
+                      }}
+                      className="flex items-center space-x-2 cursor-grab active:cursor-grabbing group select-none p-1 rounded hover:bg-[#202532] transition"
+                    >
+                      <GripVertical size={15} className="text-[#626B7E] group-hover:text-cyan-400 transition" />
+                      <span className="font-bold text-cyan-300 text-sm">{cat}</span>
+                      <span className="text-[10px] text-[#717B8F]">({items.length} 項品名)</span>
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteCategory(cat)}
+                      className="text-[#717B8F] hover:text-red-400 text-xs flex items-center transition p-1"
+                      title="刪除此分類"
+                    >
+                      <Trash2 size={13} className="mr-1" /> 刪除分類
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteCategory(cat)}
-                    className="text-[#717B8F] hover:text-red-400 text-xs flex items-center transition p-1"
-                    title="刪除此分類"
-                  >
-                    <Trash2 size={13} className="mr-1" /> 刪除分類
-                  </button>
-                </div>
+                  {/* 品名膠囊列表 (可拖動排序) */}
+                  {renderDraggablePills(`cat_items_${cat}`, items, (it) => handleRemoveItem(cat, it), 'text-white')}
 
-                {/* 品名膠囊列表 (可拖動排序) */}
-                {renderDraggablePills(`cat_items_${cat}`, items, (it) => handleRemoveItem(cat, it), 'text-white')}
-
-                {/* 新增品名欄位 */}
-                <div className="flex gap-2 pt-1 border-t border-[#232936]">
-                  <input
-                    placeholder={`新增品名至 ${cat} (無需填幾吋)...`}
-                    value={newItemName[cat] || ''}
-                    onChange={(e) => setNewItemName({ ...newItemName, [cat]: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddItemToCategory(cat);
-                      }
-                    }}
-                    className="flex-1 bg-[#1F2430] border border-[#2D3546] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                  />
-                  <button
-                    onClick={() => handleAddItemToCategory(cat)}
-                    className="bg-[#262C3A] hover:bg-[#323A4C] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
-                  >
-                    + 品名
-                  </button>
+                  {/* 新增品名欄位 */}
+                  <div className="flex gap-2 pt-1 border-t border-[#232936]">
+                    <input
+                      placeholder={`新增品名至 ${cat} (無需填幾吋)...`}
+                      value={newItemName[cat] || ''}
+                      onChange={(e) => setNewItemName({ ...newItemName, [cat]: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddItemToCategory(cat);
+                        }
+                      }}
+                      className="flex-1 bg-[#1F2430] border border-[#2D3546] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    />
+                    <button
+                      onClick={() => handleAddItemToCategory(cat)}
+                      className="bg-[#262C3A] hover:bg-[#323A4C] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                    >
+                      + 品名
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </React.Fragment>
             );
           })}
+
+          {/* 若分類插入點在最末端 */}
+          {dragCatTargetIndex === catEntries.length && (
+            <div className="my-2 flex items-center justify-center animate-pulse">
+              <div className="h-2 w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent rounded-full shadow-[0_0_15px_#22d3ee] ring-2 ring-cyan-400/50" />
+            </div>
+          )}
         </div>
       </div>
 
