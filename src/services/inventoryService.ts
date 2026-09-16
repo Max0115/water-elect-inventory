@@ -67,7 +67,9 @@ export const sanitizeGlobalOptions = (opts: GlobalOptions): GlobalOptions => {
 
   return {
     ...opts,
-    categories: sanitizedCategories
+    categories: sanitizedCategories,
+    synonyms: opts.synonyms || initialOptions.synonyms,
+    sizeAliases: opts.sizeAliases || initialOptions.sizeAliases
   };
 };
 

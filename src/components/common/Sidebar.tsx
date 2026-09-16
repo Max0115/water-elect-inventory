@@ -11,6 +11,7 @@ import {
   X
 } from 'lucide-react';
 import { MainTab } from '../../types';
+import { APP_VERSION } from '../../version';
 
 interface Props {
   currentTab: MainTab;
@@ -51,7 +52,7 @@ export const Sidebar: React.FC<Props> = ({
             </div>
             <div>
               <div className="font-bold text-base tracking-wide text-white">水電庫存智管</div>
-              <div className="text-[10px] text-cyan-400 font-mono tracking-wider uppercase">Site Inventory v2.0</div>
+              <div className="text-[10px] text-cyan-400 font-mono tracking-wider uppercase">Site Inventory {APP_VERSION}</div>
             </div>
           </div>
           {/* 手機關閉按鈕 */}

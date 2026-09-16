@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Search, AlertTriangle, CheckCircle, PlusCircle, ArrowUpRight, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, PlusCircle, ArrowUpRight, SlidersHorizontal, X } from 'lucide-react';
 import { GlobalOptions } from '../../types';
+import { SearchDropdown } from './SearchDropdown';
+import { matchesHydroQuery } from '../../services/hydroDictionary';
 
 export interface CalculatedStock {
   category: string;
@@ -46,11 +48,13 @@ export const InventoryTable: React.FC<Props> = ({
   const filtered = stockList.filter(item => {
     // 分類過濾
     const matchCat = selectedCategory === '全部' || item.category === selectedCategory;
-    // 關鍵字搜尋 (品名、規格、庫位)
-    const matchSearch =
-      item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.specification.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase());
+    // 關鍵字搜尋 (支援水電俗稱、日語外來語與英吋分數自動映射)
+    const matchSearch = matchesHydroQuery(
+      item,
+      searchTerm,
+      options.synonyms,
+      options.sizeAliases
+    );
 
     const minStock = getMinStock(item.itemName);
     const isLow = item.total <= minStock;
@@ -89,24 +93,16 @@ export const InventoryTable: React.FC<Props> = ({
 
       {/* 搜尋欄與狀態篩選 */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-[#1D212C] p-3 rounded-xl border border-[#2A3141]">
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#717B8F]" />
-          <input
-            type="text"
-            placeholder="搜尋材料品名、規格或庫位..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-[#161922] border border-[#2E3647] rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-[#717B8F] focus:outline-none focus:border-cyan-500 transition"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+        <SearchDropdown
+          value={searchTerm}
+          onChange={onSearchChange}
+          onSelectLowStock={() => {
+            setStockStatusFilter('LOW');
+            onToggleLowStock(true);
+          }}
+          placeholder="搜尋材料品名、水電俗稱(如凡而、歐魯)、規格或庫位..."
+          className="max-w-md"
+        />
 
         <div className="flex items-center space-x-2 text-xs">
           <span className="text-[#717B8F] flex items-center">

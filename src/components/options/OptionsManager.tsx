@@ -11,10 +11,15 @@ import {
   ShieldAlert,
   Save,
   GripVertical,
-  Wand2
+  Wand2,
+  BookOpen,
+  RotateCcw,
+  Sparkles,
+  Tag
 } from 'lucide-react';
 import { GlobalOptions } from '../../types';
 import { sanitizeGlobalOptions, sanitizeItemName } from '../../services/inventoryService';
+import { DEFAULT_PART_SYNONYMS, DEFAULT_PIPE_SIZE_ALIASES } from '../../services/hydroDictionary';
 
 interface Props {
   options: GlobalOptions;
@@ -48,6 +53,92 @@ export const OptionsManager: React.FC<Props> = ({
   const [dragCatTargetIndex, setDragCatTargetIndex] = useState<number | null>(null);
 
   const allItemNames = Object.values(options.categories).flat();
+
+  // 水電專屬同義詞與管件尺寸辭典狀態
+  const currentSynonyms = options.synonyms || DEFAULT_PART_SYNONYMS;
+  const currentSizeAliases = options.sizeAliases || DEFAULT_PIPE_SIZE_ALIASES;
+  
+  const [selectedTermForAlias, setSelectedTermForAlias] = useState<string>('球閥');
+  const [newSynonymAlias, setNewSynonymAlias] = useState('');
+  const [newCustomStdTerm, setNewCustomStdTerm] = useState('');
+
+  const [selectedSizeForAlias, setSelectedSizeForAlias] = useState<string>('1/2"');
+  const [newSizeAliasText, setNewSizeAliasText] = useState('');
+
+  // 新增同義詞別名至指定標準名
+  const handleAddSynonymAlias = (targetTerm: string) => {
+    if (!newSynonymAlias.trim()) return;
+    const cleanAlias = newSynonymAlias.trim();
+    const updated = { ...currentSynonyms };
+    const existing = updated[targetTerm] || [];
+    if (!existing.includes(cleanAlias)) {
+      updated[targetTerm] = [...existing, cleanAlias];
+      onUpdateOptions({ ...options, synonyms: updated });
+      onShowToast(`已將「${cleanAlias}」加入「${targetTerm}」俗稱對照`, 'success');
+      setNewSynonymAlias('');
+    }
+  };
+
+  // 移除指定標準名中的別名
+  const handleRemoveSynonymAlias = (term: string, alias: string) => {
+    const updated = { ...currentSynonyms };
+    if (updated[term]) {
+      updated[term] = updated[term].filter(a => a !== alias);
+      onUpdateOptions({ ...options, synonyms: updated });
+      onShowToast(`已移除別名「${alias}」`, 'info');
+    }
+  };
+
+  // 新增自訂標準品名進同義詞庫
+  const handleAddCustomStdTerm = () => {
+    if (!newCustomStdTerm.trim()) return;
+    const term = newCustomStdTerm.trim();
+    if (currentSynonyms[term]) {
+      onShowToast(`「${term}」已存在於辭典中`, 'error');
+      return;
+    }
+    const updated = { ...currentSynonyms, [term]: [term] };
+    onUpdateOptions({ ...options, synonyms: updated });
+    setSelectedTermForAlias(term);
+    setNewCustomStdTerm('');
+    onShowToast(`已新增標準名「${term}」至詞庫`, 'success');
+  };
+
+  // 新增尺寸別名至指定尺寸 (例如 1/2" 新增 "半吋")
+  const handleAddSizeAlias = (targetSize: string) => {
+    if (!newSizeAliasText.trim()) return;
+    const cleanAlias = newSizeAliasText.trim();
+    const updated = { ...currentSizeAliases };
+    const existing = updated[targetSize] || [];
+    if (!existing.includes(cleanAlias)) {
+      updated[targetSize] = [...existing, cleanAlias];
+      onUpdateOptions({ ...options, sizeAliases: updated });
+      onShowToast(`已將「${cleanAlias}」加入「${targetSize}」尺寸別名`, 'success');
+      setNewSizeAliasText('');
+    }
+  };
+
+  // 移除尺寸別名
+  const handleRemoveSizeAlias = (size: string, alias: string) => {
+    const updated = { ...currentSizeAliases };
+    if (updated[size]) {
+      updated[size] = updated[size].filter(a => a !== alias);
+      onUpdateOptions({ ...options, sizeAliases: updated });
+      onShowToast(`已移除「${size}」的別名「${alias}」`, 'info');
+    }
+  };
+
+  // 恢復預設水電詞庫
+  const handleResetDictionary = () => {
+    if (window.confirm('確定要將管件尺寸對照與台語俗稱詞庫還原為水電標準預設值嗎？')) {
+      onUpdateOptions({
+        ...options,
+        synonyms: DEFAULT_PART_SYNONYMS,
+        sizeAliases: DEFAULT_PIPE_SIZE_ALIASES
+      });
+      onShowToast('已成功還原為水電官方標準辭典庫', 'success');
+    }
+  };
 
   // 標籤拖動開始
   const handlePillDragStart = (e: React.DragEvent, listId: string, index: number) => {
@@ -371,7 +462,8 @@ export const OptionsManager: React.FC<Props> = ({
   const catEntries = Object.entries(options.categories);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 左欄：水電分類與品名管理 (品名尺寸全數脫鉤 + 支援拖拽排序) */}
       <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-4 shadow-xs">
         <div className="flex items-center justify-between pb-3 border-b border-[#282F3E]">
@@ -690,5 +782,220 @@ export const OptionsManager: React.FC<Props> = ({
         </div>
       </div>
     </div>
+
+    {/* 水電專屬台語俗稱與管件規格 (1/8" ~ 6") 辭典對照管理 */}
+    <div className="bg-[#202532] p-5 sm:p-6 rounded-2xl border border-cyan-500/40 shadow-lg space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#282F3E]">
+        <div>
+          <div className="flex items-center space-x-2">
+            <span className="p-1.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800/40">
+              <BookOpen size={18} />
+            </span>
+            <h3 className="font-bold text-white text-base">
+              水電專屬「管件規格 (1/8" ~ 6") 與台語俗稱」自動映射辭典
+            </h3>
+          </div>
+          <p className="text-xs text-[#8E96A4] mt-1.5 leading-relaxed">
+            解決「工班師傅口語講台語俗稱，系統存標準中文名」的溝通斷層。搜尋時打「4分 凡而」會自動匹配「1/2" 球閥」；開單時也會自動標註俗稱提示。
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleResetDictionary}
+          className="flex items-center text-xs bg-[#161922] hover:bg-[#282F3F] text-cyan-300 hover:text-white px-3 py-2 rounded-xl border border-cyan-800/50 transition self-start sm:self-auto shrink-0 shadow-xs"
+          title="還原為台灣水電官方標準管徑與同義詞對照庫"
+        >
+          <RotateCcw size={13} className="mr-1.5 text-cyan-400" />
+          恢復水電官方預設詞庫
+        </button>
+      </div>
+
+      {/* 雙欄劃分：左欄 1/8"~6"管徑英吋分數對照；右欄 常用零件台語/外來語同義詞對照 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 左區塊：1/8" 至 6" 英吋與台語分數對照 */}
+        <div className="bg-[#181C25] p-4 rounded-xl border border-[#282F3E] space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Ruler size={15} className="text-cyan-400" />
+              <h4 className="text-xs font-bold text-white">管件英吋與台語分數對照 (1/8" ~ 6")</h4>
+            </div>
+            <span className="text-[10px] bg-cyan-950/70 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40 font-mono">
+              {Object.keys(currentSizeAliases).length} 種標準管徑
+            </span>
+          </div>
+
+          {/* 新增別名控制列 */}
+          <div className="flex gap-2">
+            <select
+              value={selectedSizeForAlias}
+              onChange={(e) => setSelectedSizeForAlias(e.target.value)}
+              className="bg-[#202532] border border-[#2E3647] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono w-28"
+            >
+              {Object.keys(currentSizeAliases).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <input
+              placeholder={`新增「${selectedSizeForAlias}」的俗稱別名 (如: 4分, 半吋)...`}
+              value={newSizeAliasText}
+              onChange={(e) => setNewSizeAliasText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddSizeAlias(selectedSizeForAlias);
+                }
+              }}
+              className="flex-1 bg-[#161922] border border-[#2E3647] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+            />
+            <button
+              type="button"
+              onClick={() => handleAddSizeAlias(selectedSizeForAlias)}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            >
+              + 別名
+            </button>
+          </div>
+
+          {/* 尺寸與別名展示卡片清單 */}
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
+            {Object.entries(currentSizeAliases).map(([size, aliases]) => (
+              <div key={size} className="flex items-center justify-between p-2 rounded-lg bg-[#202532] border border-[#28303F] text-xs">
+                <div className="flex items-center space-x-2 flex-wrap">
+                  <span className="font-mono font-bold text-cyan-300 w-16 px-1.5 py-0.5 bg-cyan-950/60 rounded border border-cyan-800/40 text-center shrink-0">
+                    {size}
+                  </span>
+                  <span className="text-[#626B7E]">→</span>
+                  <div className="flex flex-wrap gap-1">
+                    {aliases.map(al => (
+                      <span key={al} className="bg-[#161922] text-[#E1E4EA] px-2 py-0.5 rounded text-[11px] border border-[#2E3647] flex items-center">
+                        {al}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSizeAlias(size, al)}
+                          className="ml-1 text-[#717B8F] hover:text-red-400"
+                          title="移除此別名"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 右區塊：零件台語/外來語同義詞對照 */}
+        <div className="bg-[#181C25] p-4 rounded-xl border border-[#282F3E] space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Tag size={15} className="text-cyan-400" />
+              <h4 className="text-xs font-bold text-white">零件台語 / 日語外來語同義詞表</h4>
+            </div>
+            <span className="text-[10px] bg-cyan-950/70 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800/40 font-mono">
+              {Object.keys(currentSynonyms).length} 組對照
+            </span>
+          </div>
+
+          {/* 新增別名至選定品名 */}
+          <div className="flex gap-2">
+            <select
+              value={selectedTermForAlias}
+              onChange={(e) => setSelectedTermForAlias(e.target.value)}
+              className="bg-[#202532] border border-[#2E3647] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 w-32"
+            >
+              {Object.keys(currentSynonyms).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <input
+              placeholder={`新增「${selectedTermForAlias}」的台語俗稱 (如: 凡而, 歐魯)...`}
+              value={newSynonymAlias}
+              onChange={(e) => setNewSynonymAlias(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddSynonymAlias(selectedTermForAlias);
+                }
+              }}
+              className="flex-1 bg-[#161922] border border-[#2E3647] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+            />
+            <button
+              type="button"
+              onClick={() => handleAddSynonymAlias(selectedTermForAlias)}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            >
+              + 俗稱
+            </button>
+          </div>
+
+          {/* 新增自訂標準名欄位 */}
+          <div className="flex gap-2 pt-1 border-t border-[#232936]">
+            <input
+              placeholder="新增全新標準品名進辭典 (如: 壓接另件, 活心三通)..."
+              value={newCustomStdTerm}
+              onChange={(e) => setNewCustomStdTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddCustomStdTerm();
+                }
+              }}
+              className="flex-1 bg-[#161922] border border-[#2E3647] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddCustomStdTerm}
+              className="bg-[#262C3A] hover:bg-[#323A4C] text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+            >
+              + 標準名
+            </button>
+          </div>
+
+          {/* 俗稱對照清單 */}
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+            {Object.entries(currentSynonyms).map(([term, aliases]) => (
+              <div key={term} className="p-2.5 rounded-lg bg-[#202532] border border-[#28303F] text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center">
+                    <Sparkles size={12} className="mr-1 text-cyan-400" />
+                    {term}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const copy = { ...currentSynonyms };
+                      delete copy[term];
+                      onUpdateOptions({ ...options, synonyms: copy });
+                    }}
+                    className="text-[#717B8F] hover:text-red-400 text-[11px]"
+                    title="刪除此品名辭典群組"
+                  >
+                    刪除
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {aliases.map(al => (
+                    <span key={al} className="bg-[#161922] text-[#E1E4EA] px-2 py-0.5 rounded text-[11px] border border-[#2E3647] flex items-center">
+                      {al}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSynonymAlias(term, al)}
+                        className="ml-1 text-[#717B8F] hover:text-red-400"
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   );
 };

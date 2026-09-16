@@ -1,19 +1,22 @@
 import { GlobalOptions, InventoryRecord, OperationLog } from '../types';
+import { DEFAULT_PART_SYNONYMS, DEFAULT_PIPE_SIZE_ALIASES } from './hydroDictionary';
 
 // 去除品名內硬編碼尺寸，尺寸規格一律獨立由 specifications 欄位管理
 export const initialOptions: GlobalOptions = {
   categories: {
-    'PVC另件材料': ['電S', '45度OL 單放', 'OL', 'OT', 'OS', '順T', '異徑S'],
-    '給水另件': ['EB 套銅彎頭', '套銅S', '給水直接頭', '立體三通'],
-    '耐衝擊另件': ['OL', '套銅S', '耐衝擊接頭'],
-    'PVC管材': ['耐衝擊管', '橘色薄管', '灰色厚管', '電線導管'],
+    'PVC另件材料': ['電S', '45度OL 單放', 'OL', 'OT', 'OS', '順T', '異徑S', '球閥', '90度彎頭', '活接頭'],
+    '給水另件': ['EB 套銅彎頭', '套銅S', '給水直接頭', '立體三通', '雙外牙短管'],
+    '耐衝擊另件': ['OL', '套銅S', '耐衝擊接頭', '外牙塞頭', '管帽'],
+    'PVC管材': ['耐衝擊管', '橘色薄管', '灰色厚管', '電線導管', '波紋管'],
     '電線電纜': ['單芯銅線 (紅)', '單芯銅線 (白)', '絞線 (綠)', '主幹線 (黑)'],
     '開關箱與插座': ['接地雙插座附蓋板', '無熔線斷路器', '漏電斷路器', '金屬開關接線盒']
   },
   specifications: [
-    '1/2"', '3/4"', '1"', '1"(25)', '1"x3/4"', 
+    '1/8"', '1/4"', '5/16"', '3/8"',
+    '1/2"', '5/8"', '3/4"', '7/8"', 
+    '1"', '1"(25)', '1"x3/4"', 
     '1-1/4"', '1-1/2"', '2"', '2"x1"', '2-1/2"', 
-    '3"', '4"', '4"x2"', '6"', 
+    '3"', '3-1/2"', '4"', '4"x2"', '5"', '6"', 
     '2.0mm', '5.5mm²', '14mm²', '38mm²', 
     '2P 20A', '3P 30A'
   ],
@@ -26,7 +29,9 @@ export const initialOptions: GlobalOptions = {
     '單芯銅線 (紅)': 3,
     '耐衝擊管': 8,
     '無熔線斷路器': 4
-  }
+  },
+  synonyms: DEFAULT_PART_SYNONYMS,
+  sizeAliases: DEFAULT_PIPE_SIZE_ALIASES
 };
 
 export const sampleRecords: InventoryRecord[] = [

@@ -72,23 +72,40 @@ export const Header: React.FC<Props> = ({
 
       {/* 右側：動作按鈕群 */}
       <div className="flex items-center space-x-2 md:space-x-3">
-        {/* 亮暗主題切換按鈕 */}
+        {/* 亮暗模式精緻滑動開關 */}
         <button
+          type="button"
           onClick={onToggleTheme}
-          title={theme === 'dark' ? '切換至戶外強光高對比白天模式' : '切換至暗黑夜間模式'}
-          className="flex items-center text-xs bg-[#222734] hover:bg-[#2C3243] text-gray-300 hover:text-white border border-[#30384A] px-2.5 sm:px-3 py-2 rounded-lg transition"
+          title={theme === 'dark' ? '點擊切換為亮色模式' : '點擊切換為暗色模式'}
+          className={`relative w-[82px] h-[34px] rounded-full p-1 transition-colors duration-300 flex items-center cursor-pointer select-none focus:outline-none border shadow-inner ${
+            theme === 'dark'
+              ? 'bg-[#151821] border-[#2E3647]'
+              : 'bg-amber-100/95 border-amber-300 shadow-amber-200/50'
+          }`}
         >
-          {theme === 'dark' ? (
-            <>
-              <Sun size={15} className="text-amber-400 sm:mr-1.5" />
-              <span className="hidden sm:inline">戶外強光</span>
-            </>
-          ) : (
-            <>
-              <Moon size={15} className="text-cyan-600 sm:mr-1.5" />
-              <span className="hidden sm:inline">暗色模式</span>
-            </>
-          )}
+          {/* 滑動圓球 */}
+          <div
+            className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-in-out z-10 shadow-md ${
+              theme === 'dark'
+                ? 'translate-x-0 bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-cyan-500/25'
+                : 'translate-x-[48px] bg-gradient-to-tr from-amber-400 to-orange-400 text-white shadow-amber-500/30'
+            }`}
+          >
+            {theme === 'dark' ? <Moon size={13} /> : <Sun size={13} />}
+          </div>
+
+          {/* 文字標籤 (絕對定位在背景兩側) */}
+          <div className="absolute inset-0 flex items-center px-2.5 pointer-events-none">
+            {theme === 'dark' ? (
+              <span className="w-full text-right text-[11px] font-bold text-gray-300 pr-0.5 tracking-wide">
+                暗色
+              </span>
+            ) : (
+              <span className="w-full text-left text-[11px] font-bold text-amber-900 pl-0.5 tracking-wide">
+                亮色
+              </span>
+            )}
+          </div>
         </button>
 
         {/* 重新整理 */}

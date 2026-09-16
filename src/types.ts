@@ -53,6 +53,8 @@ export interface GlobalOptions {
   locations: string[];
   suppliers: string[];
   minStockMap?: Record<string, number>; // 各材料自訂安全庫存門檻
+  synonyms?: Record<string, string[]>;   // 水電零件台語/外來語同義詞對照
+  sizeAliases?: Record<string, string[]>; // 1/8" ~ 6" 英吋與台語分數尺寸對照
 }
 
 export interface OperationLog {

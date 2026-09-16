@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Sparkles } from 'lucide-react';
 import { OrderType, OrderItem, GlobalOptions } from '../types';
 import { saveOrderWithItems } from '../services/inventoryService';
+import { getDialectHint } from '../services/hydroDictionary';
 
 interface Props {
   isOpen: boolean;
@@ -235,8 +236,10 @@ export const AddOrderModal: React.FC<Props> = ({
             <div className="space-y-2.5">
               {items.map((item, idx) => {
                 const availableItems = options.categories[item.category] || [];
+                const { itemHint, specHint } = getDialectHint(item.itemName, item.specification, options.synonyms, options.sizeAliases);
                 return (
-                  <div key={idx} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-[#181C25] p-3 rounded-xl border border-[#28303F]">
+                  <div key={idx} className="bg-[#181C25] p-3 rounded-xl border border-[#28303F] space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                     {/* 分類下拉 */}
                     <select
                       value={item.category}
@@ -352,8 +355,19 @@ export const AddOrderModal: React.FC<Props> = ({
                       </button>
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* 水電俗稱與管徑提示標籤 */}
+                  {(itemHint || specHint) && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/30 w-fit">
+                      <Sparkles size={10} className="text-cyan-400" />
+                      {itemHint && <span>{itemHint}</span>}
+                      {itemHint && specHint && <span className="text-[#626B7E]">|</span>}
+                      {specHint && <span>{specHint}</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             </div>
           </div>
 
