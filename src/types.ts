@@ -21,8 +21,8 @@ export interface OrderItem {
   specification: string;
   quantity: number;
   unit: string;
-  location: string;    // 案場或庫位
-  supplier?: string;   // 進貨: 材料商 / 出貨: 領料工班
+  location: string;        // 案場或庫位
+  supplier?: string;       // 進貨: 材料商 / 出貨: 領料工班
   targetLocation?: string; // 調撥目標
   notes?: string;
 }
@@ -44,7 +44,7 @@ export interface StockItem {
   unit: string;
   currentStock: number;
   minStock?: number; // 安全庫存警示值
-  lastUpdated: any;
+  lastUpdated?: any;
 }
 
 export interface GlobalOptions {
@@ -53,4 +53,26 @@ export interface GlobalOptions {
   units: string[];
   locations: string[];
   suppliers: string[];
+  minStockMap?: Record<string, number>; // 各材料自訂安全庫存門檻
+}
+
+export interface OperationLog {
+  id?: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSFER' | 'IMPORT';
+  targetId: string;
+  targetName: string;
+  userId: string;
+  userEmail: string;
+  timestamp: any;
+  details?: Record<string, any>;
+}
+
+export interface CrewCalendarEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  crewName: string;
+  type: 'WORK' | 'LEAVE' | 'OVERTIME' | 'SITE_DUTY';
+  siteLocation: string;
+  workDescription: string;
+  notes?: string;
 }
