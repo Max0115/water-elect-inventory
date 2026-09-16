@@ -11,22 +11,18 @@ import {
   setDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, hasValidConfig } from '../firebase';
 import { OrderType, OrderItem, GlobalOptions, InventoryRecord, OperationLog, CrewCalendarEvent } from '../types';
 import { initialOptions, sampleRecords, sampleLogs, sampleCrewEvents } from './mockData';
 
-const LOCAL_STORAGE_RECORDS_KEY = 'water_elect_records_cache';
-const LOCAL_STORAGE_OPTIONS_KEY = 'water_elect_options_cache';
-const LOCAL_STORAGE_LOGS_KEY = 'water_elect_logs_cache';
-const LOCAL_STORAGE_CREW_KEY = 'water_elect_crew_cache';
+const LOCAL_STORAGE_RECORDS_KEY = 'water_elect_records_cache_v2';
+const LOCAL_STORAGE_OPTIONS_KEY = 'water_elect_options_cache_v2';
+const LOCAL_STORAGE_LOGS_KEY = 'water_elect_logs_cache_v2';
+const LOCAL_STORAGE_CREW_KEY = 'water_elect_crew_cache_v2';
 
 // 檢查 Firebase 是否有效配置
 const isFirebaseConfigured = (): boolean => {
-  try {
-    return Boolean(db?.app?.options?.apiKey && db.app.options.apiKey !== 'undefined');
-  } catch {
-    return false;
-  }
+  return hasValidConfig;
 };
 
 // 本地緩存輔助函數
