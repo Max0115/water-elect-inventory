@@ -242,3 +242,43 @@ body {
 .theme-light .bg-black\/75 {
   background-color: rgba(15, 23, 42, 0.6) !important;
 }
+
+/* ==========================================================================
+   🔍 大字體模式 (Senior & Outdoor Large Font Mode)
+   全域字級放大 2px，行高舒適延展，按鈕與表格間距自適應，100% 不破版
+   ========================================================================== */
+.font-large {
+  font-size: 15px;
+}
+
+.font-large .text-xs {
+  font-size: 14px !important;
+  line-height: 1.35rem !important;
+}
+
+.font-large .text-sm {
+  font-size: 16px !important;
+  line-height: 1.5rem !important;
+}
+
+.font-large .text-base {
+  font-size: 18px !important;
+  line-height: 1.75rem !important;
+}
+
+.font-large .text-lg {
+  font-size: 20px !important;
+  line-height: 1.85rem !important;
+}
+
+.font-large .text-\[10px\],
+.font-large .text-\[11px\] {
+  font-size: 12.5px !important;
+  line-height: 1.25rem !important;
+}
+
+.font-large input,
+.font-large select,
+.font-large button {
+  font-size: 14px !important;
+}

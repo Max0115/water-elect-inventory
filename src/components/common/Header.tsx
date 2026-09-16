@@ -22,6 +22,8 @@ interface Props {
   isRefreshing?: boolean;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  fontSize: 'standard' | 'large';
+  onToggleFontSize: () => void;
 }
 
 export const Header: React.FC<Props> = ({
@@ -35,10 +37,13 @@ export const Header: React.FC<Props> = ({
   isRefreshing,
   theme,
   onToggleTheme,
+  fontSize,
+  onToggleFontSize,
 }) => {
   const getTabTitle = (tab: MainTab) => {
     switch (tab) {
       case 'inventory': return '即時庫存總覽';
+      case 'tools': return '水電專用機具與儀器借還';
       case 'in_orders': return '進貨單據管理';
       case 'out_orders': return '現場領料出庫';
       case 'scrap': return '工地短管 / 餘料暫存';
@@ -106,6 +111,21 @@ export const Header: React.FC<Props> = ({
               </span>
             )}
           </div>
+        </button>
+
+        {/* 大字體模式切換 (A / A+) */}
+        <button
+          type="button"
+          onClick={onToggleFontSize}
+          title={fontSize === 'standard' ? '切換至大字體模式 (文字自動放大 2 點，適合戶外強光與資深師傅)' : '切換至標準字體'}
+          className={`flex items-center text-xs px-2.5 sm:px-3 py-1.5 rounded-lg border transition font-bold select-none ${
+            fontSize === 'large'
+              ? 'bg-cyan-600 hover:bg-cyan-500 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
+              : 'bg-[#222734] hover:bg-[#2C3243] text-gray-300 hover:text-white border-[#30384A]'
+          }`}
+        >
+          <span className="font-mono text-sm mr-1">{fontSize === 'large' ? 'A+' : 'A'}</span>
+          <span className="hidden sm:inline">{fontSize === 'large' ? '大字體' : '標準'}</span>
         </button>
 
         {/* 重新整理 */}

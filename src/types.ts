@@ -2,6 +2,7 @@ export type OrderType = 'IN' | 'OUT' | 'R' | 'SCRAP' | 'TRANSFER';
 
 export type MainTab = 
   | 'inventory'
+  | 'tools'
   | 'in_orders'
   | 'out_orders'
   | 'scrap'
@@ -66,4 +67,35 @@ export interface OperationLog {
   userEmail: string;
   timestamp: any;
   details?: Record<string, any>;
+}
+
+export type ToolStatus = 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE' | 'DAMAGED';
+
+export interface ToolItem {
+  id: string;
+  name: string;
+  category: string; // 動力壓接類, 水管通管試壓, 電氣檢測儀器, 鑽孔破碎機具, 常用手工具
+  modelNumber?: string;
+  serialNumber?: string;
+  status: ToolStatus;
+  currentBorrower?: string; // 當前借用工班/師傅
+  currentLocation?: string; // 當前所在案場/庫位
+  borrowDate?: string;
+  expectedReturnDate?: string;
+  photoUrl?: string; // 存證照片 (壓縮 Base64 或 URL)
+  conditionNote?: string; // 機況備註 (如模具規格、配件狀況)
+  lastInspectionDate?: string; // 上次保養/校正日期
+  nextInspectionDate?: string; // 下次校正到期日
+}
+
+export interface ToolLog {
+  id: string;
+  toolId: string;
+  toolName: string;
+  action: 'BORROW' | 'RETURN' | 'MAINTENANCE' | 'CREATE' | 'UPDATE';
+  person: string;
+  location: string;
+  timestamp: string;
+  conditionNote?: string;
+  photoUrl?: string;
 }

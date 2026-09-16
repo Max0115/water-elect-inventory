@@ -8,7 +8,8 @@ import {
   FileText, 
   LogOut, 
   HardHat, 
-  X
+  X,
+  Wrench
 } from 'lucide-react';
 import { MainTab } from '../../types';
 import { APP_VERSION } from '../../version';
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<Props> = ({
 }) => {
   const navItems: { id: MainTab; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
     { id: 'inventory', label: '庫存總覽', icon: Box },
+    { id: 'tools', label: '機具與儀器借還', icon: Wrench },
     { id: 'in_orders', label: '進貨管理', icon: Download },
     { id: 'out_orders', label: '現場領料出庫', icon: Upload },
     { id: 'scrap', label: '餘料 / 短管管理', icon: Layers },

@@ -13,6 +13,7 @@ import { AddOrderModal } from './components/AddOrderModal';
 import { EditOrderModal } from './components/EditOrderModal';
 import { AuditLogsView } from './components/logs/AuditLogsView';
 import { OptionsManager } from './components/options/OptionsManager';
+import { ToolsView } from './components/tools/ToolsView';
 
 // 服務與型別
 import { 
@@ -42,6 +43,19 @@ export default function App() {
     setTheme(prev => {
       const next = prev === 'dark' ? 'light' : 'dark';
       localStorage.setItem('water_elect_theme', next);
+      return next;
+    });
+  }, []);
+
+  // 大字體模式 (標準字體 vs 放大 2px 友善大字體)
+  const [fontSize, setFontSize] = useState<'standard' | 'large'>(() => {
+    return (localStorage.getItem('water_elect_font_size') as 'standard' | 'large') || 'standard';
+  });
+
+  const toggleFontSize = useCallback(() => {
+    setFontSize(prev => {
+      const next = prev === 'standard' ? 'large' : 'standard';
+      localStorage.setItem('water_elect_font_size', next);
       return next;
     });
   }, []);
@@ -287,7 +301,7 @@ export default function App() {
   };
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans select-none transition-colors duration-200 theme-${theme} ${theme === 'light' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'bg-[#151821] text-[#E1E4EA]'}`}>
+    <div className={`flex h-screen overflow-hidden font-sans select-none transition-colors duration-200 theme-${theme} ${fontSize === 'large' ? 'font-large' : ''} ${theme === 'light' ? 'bg-[#F1F5F9] text-[#0F172A]' : 'bg-[#151821] text-[#E1E4EA]'}`}>
       {/* 側邊導覽列 (含手機抽屜) */}
       <Sidebar
         currentTab={currentTab}
@@ -316,6 +330,8 @@ export default function App() {
           isRefreshing={isRefreshing}
           theme={theme}
           onToggleTheme={toggleTheme}
+          fontSize={fontSize}
+          onToggleFontSize={toggleFontSize}
         />
 
         {/* 視圖內容容器 */}
@@ -344,6 +360,14 @@ export default function App() {
                 onQuickAction={handleQuickAction}
               />
             </>
+          )}
+
+          {/* 分頁 1.5: 水電專用機具與儀器借還 */}
+          {currentTab === 'tools' && (
+            <ToolsView
+              options={options}
+              onShowToast={showToast}
+            />
           )}
 
           {/* 分頁 2: 進貨單據 */}
