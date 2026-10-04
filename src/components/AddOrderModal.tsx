@@ -73,6 +73,8 @@ export const AddOrderModal: React.FC<Props> = ({
     }
   }, [isOpen, prefillItem]);
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   if (!isOpen) return null;
 
   const handleAddItem = () => {
@@ -102,6 +104,15 @@ export const AddOrderModal: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
+
+    // 防呆驗證：數量必須填寫且大於 0
+    const hasInvalidQty = items.some(it => !it.quantity || Number(it.quantity) <= 0);
+    if (hasInvalidQty) {
+      setErrorMsg('請確認所有品項之數量均已填寫且大於 0');
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = items.map(it => ({
@@ -116,14 +127,14 @@ export const AddOrderModal: React.FC<Props> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      alert('開單失敗，請檢查資料庫狀態');
+      setErrorMsg('開單失敗，請檢查網路連線或資料庫狀態');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
       <div className="bg-[#202532] border border-[#2F374A] rounded-2xl max-w-5xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex justify-between items-center mb-5 border-b border-[#2A3243] pb-3">
           <div className="flex items-center space-x-2">
@@ -138,6 +149,12 @@ export const AddOrderModal: React.FC<Props> = ({
             <X size={20} />
           </button>
         </div>
+
+        {errorMsg && (
+          <div className="p-3 mb-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
+            {errorMsg}
+          </div>
+        )}
 
         {/* 快速提示選項 */}
         <datalist id="opt-specs">
@@ -238,7 +255,7 @@ export const AddOrderModal: React.FC<Props> = ({
                 const availableItems = options.categories[item.category] || [];
                 const { itemHint, specHint } = getDialectHint(item.itemName, item.specification, options.synonyms, options.sizeAliases);
                 return (
-                  <div key={idx} className="bg-[#181C25] p-3 rounded-xl border border-[#28303F] space-y-2">
+                  <div key={`${idx}_${item.category}_${item.itemName}`} className="bg-[#181C25] p-3 rounded-xl border border-[#28303F] space-y-2">
                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                     {/* 分類下拉 */}
                     <select
@@ -248,6 +265,7 @@ export const AddOrderModal: React.FC<Props> = ({
                         const newItems = [...items];
                         newItems[idx].category = newCat;
                         newItems[idx].itemName = options.categories[newCat]?.[0] || '';
+                        newItems[idx].specification = '';
                         setItems(newItems);
                       }}
                       className="bg-[#202532] border border-[#2E3647] rounded-lg p-1.5 text-xs text-white sm:w-36 focus:outline-none"

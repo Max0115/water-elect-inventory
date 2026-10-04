@@ -162,7 +162,7 @@ export const SearchDropdown: React.FC<Props> = ({
 
       {/* 零狀態智慧下拉面板 (Zero-State Intelligent Dropdown) */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1C202C] border border-[#2D3546] rounded-2xl shadow-2xl z-40 p-4 space-y-4 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#1C202C] border border-[#2D3546] rounded-2xl shadow-2xl z-40 p-4 space-y-4 backdrop-blur-md max-h-[75vh] overflow-y-auto">
           {/* 最近搜尋歷史 */}
           {recentSearches.length > 0 && (
             <div className="space-y-2">
@@ -180,20 +180,26 @@ export const SearchDropdown: React.FC<Props> = ({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {recentSearches.map((term) => (
-                  <button
+                  <div
                     key={term}
-                    type="button"
-                    onClick={() => handleSelectKeyword(term)}
-                    className="group bg-[#161922] hover:bg-[#252B3A] text-gray-300 hover:text-white px-2.5 py-1 rounded-lg text-xs border border-[#2A3142] flex items-center transition"
+                    className="group bg-[#161922] hover:bg-[#252B3A] text-gray-300 hover:text-white rounded-lg text-xs border border-[#2A3142] flex items-center transition"
                   >
-                    <span>{term}</span>
-                    <span
-                      onClick={(e) => handleRemoveRecent(term, e)}
-                      className="ml-1.5 text-[#626B7E] group-hover:text-red-400 p-0.5"
+                    <button
+                      type="button"
+                      onClick={() => handleSelectKeyword(term)}
+                      className="px-2.5 py-1 text-left"
                     >
-                      <X size={10} />
-                    </span>
-                  </button>
+                      {term}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveRecent(term, e)}
+                      className="pr-2 pl-0.5 text-[#626B7E] group-hover:text-red-400 hover:text-red-300 transition"
+                      title="移除"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

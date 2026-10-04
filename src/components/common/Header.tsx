@@ -131,8 +131,9 @@ export const Header: React.FC<Props> = ({
         {/* 重新整理 */}
         <button
           onClick={onRefresh}
+          disabled={isRefreshing}
           title="重新整理數據"
-          className="p-2 rounded-lg bg-[#222734] hover:bg-[#2C3243] text-gray-300 hover:text-white border border-[#30384A] transition"
+          className="p-2 rounded-lg bg-[#222734] hover:bg-[#2C3243] text-gray-300 hover:text-white border border-[#30384A] transition disabled:opacity-50"
         >
           <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-cyan-400' : ''} />
         </button>
@@ -164,8 +165,8 @@ export const Header: React.FC<Props> = ({
           className="flex items-center text-xs md:text-sm bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 px-3.5 md:px-4 py-2 rounded-lg font-semibold text-white shadow-lg shadow-cyan-600/25 transition transform active:scale-95"
         >
           <Plus size={16} className="mr-1" />
-          <span className="hidden xs:inline">快速開單 / 異動</span>
-          <span className="xs:hidden">開單</span>
+          <span className="hidden sm:inline">快速開單 / 異動</span>
+          <span className="sm:hidden">開單</span>
         </button>
       </div>
     </header>

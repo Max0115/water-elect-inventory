@@ -13,6 +13,8 @@ import {
 import { GlobalOptions } from '../../types';
 import { SearchDropdown } from './SearchDropdown';
 import { matchesHydroQuery } from '../../services/hydroDictionary';
+import { Pagination } from '../common/Pagination';
+import { EmptyState } from '../common/EmptyState';
 
 export interface CalculatedStock {
   category: string;
@@ -123,6 +125,20 @@ export const InventoryTable: React.FC<Props> = ({
       return sortDirection === 'asc' ? comp : -comp;
     });
   }, [filtered, sortField, sortDirection]);
+
+  // 分頁邏輯
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 40;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchTerm, isOnlyLowStock, stockStatusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedList.length / pageSize));
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedList.slice(start, start + pageSize);
+  }, [sortedList, currentPage, pageSize]);
 
   const renderSortHeader = (field: 'category' | 'itemName' | 'specification' | 'location' | 'total' | 'status', label: string, align: 'left' | 'right' | 'center' = 'left') => {
     const isActive = sortField === field && sortDirection !== 'none';
@@ -247,13 +263,14 @@ export const InventoryTable: React.FC<Props> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#282F3E]">
-            {sortedList.map((item, idx) => {
+            {paginatedList.map((item) => {
               const minStock = getMinStock(item.itemName);
               const isLow = item.total <= minStock;
               const isZero = item.total <= 0;
+              const uniqueKey = `${item.category}_${item.itemName}_${item.specification}_${item.location}`;
 
               return (
-                <tr key={idx} className="hover:bg-[#252B3A] transition">
+                <tr key={uniqueKey} className="hover:bg-[#252B3A] transition">
                   <td className="py-3 px-4 text-[#8A93A6]">
                     <span className="bg-[#181C25] px-2 py-1 rounded border border-[#2E3647]">
                       {item.category}
@@ -276,15 +293,15 @@ export const InventoryTable: React.FC<Props> = ({
                   <td className="py-3 px-4 text-[#8A93A6]">{item.unit}</td>
                   <td className="py-3 px-4 text-center">
                     {isZero ? (
-                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-empty shadow-xs">
+                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-empty shadow-sm">
                         <AlertTriangle size={12} className="mr-1 shrink-0" /> 已缺料 (0)
                       </span>
                     ) : isLow ? (
-                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-low shadow-xs">
+                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-low shadow-sm">
                         <AlertTriangle size={12} className="mr-1 shrink-0" /> 偏低 (≤{minStock})
                       </span>
                     ) : (
-                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-normal shadow-xs">
+                      <span className="inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold badge-stock-normal shadow-sm">
                         <CheckCircle size={12} className="mr-1 shrink-0" /> 充足
                       </span>
                     )}
@@ -312,8 +329,18 @@ export const InventoryTable: React.FC<Props> = ({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-[#717B8F]">
-                  查無符合條件的水電材料庫存資料
+                <td colSpan={8} className="py-6">
+                  <EmptyState
+                    title="查無符合條件的水電材料庫存資料"
+                    description="請嘗試調整關鍵字或點擊清除篩選"
+                    actionLabel="清除所有篩選條件"
+                    onAction={() => {
+                      onSelectCategory('全部');
+                      onSearchChange('');
+                      onToggleLowStock(false);
+                      setStockStatusFilter('ALL');
+                    }}
+                  />
                 </td>
               </tr>
             )}
@@ -323,13 +350,14 @@ export const InventoryTable: React.FC<Props> = ({
 
       {/* 手機行動端卡片模式 */}
       <div className="md:hidden space-y-2.5">
-        {sortedList.map((item, idx) => {
+        {paginatedList.map((item) => {
           const minStock = getMinStock(item.itemName);
           const isLow = item.total <= minStock;
           const isZero = item.total <= 0;
+          const uniqueKey = `${item.category}_${item.itemName}_${item.specification}_${item.location}`;
 
           return (
-            <div key={idx} className="bg-[#202532] border border-[#2B3242] p-3.5 rounded-xl space-y-2 shadow-xs">
+            <div key={uniqueKey} className="bg-[#202532] border border-[#2B3242] p-3.5 rounded-xl space-y-2 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
                   <span className="text-[10px] text-cyan-400 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-800/40 mr-1.5">
@@ -382,11 +410,33 @@ export const InventoryTable: React.FC<Props> = ({
           );
         })}
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-[#717B8F] bg-[#202532] rounded-xl border border-[#2B3242]">
-            查無符合條件的水電材料
-          </div>
+          <EmptyState
+            title="查無符合條件的水電材料"
+            description="請嘗試清除篩選條件"
+            actionLabel="清除所有篩選條件"
+            onAction={() => {
+              onSelectCategory('全部');
+              onSearchChange('');
+              onToggleLowStock(false);
+              setStockStatusFilter('ALL');
+            }}
+          />
         )}
       </div>
+
+      {/* 分頁控制列 */}
+      {sortedList.length > 0 && (
+        <div className="pt-2">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+            totalItems={sortedList.length}
+            showInfo={true}
+          />
+        </div>
+      )}
     </div>
   );
 };

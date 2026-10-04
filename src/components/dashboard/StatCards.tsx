@@ -21,7 +21,7 @@ export const StatCards: React.FC<StatCardProps> = ({
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4">
       {/* 總在庫品項 */}
-      <div className="bg-[#202532] border border-[#2B3242] p-4 rounded-xl shadow-xs">
+      <div className="bg-[#202532] border border-[#2B3242] p-4 rounded-xl shadow-sm">
         <div className="flex items-center justify-between text-xs text-[#8A93A6] mb-2 font-medium">
           <span>在庫材料品項</span>
           <Package size={16} className="text-cyan-400" />
@@ -36,7 +36,7 @@ export const StatCards: React.FC<StatCardProps> = ({
       {/* 安全存量告急 */}
       <div 
         onClick={onFilterLowStock}
-        className={`border p-4 rounded-xl shadow-xs cursor-pointer transition-all ${
+        className={`border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
           isLowStockFilterActive
             ? 'bg-red-950/40 border-red-500 shadow-red-500/10'
             : 'bg-[#202532] border-[#2B3242] hover:border-red-500/50'
@@ -58,7 +58,7 @@ export const StatCards: React.FC<StatCardProps> = ({
       </div>
 
       {/* 今日進貨 */}
-      <div className="bg-[#202532] border border-[#2B3242] p-4 rounded-xl shadow-xs">
+      <div className="bg-[#202532] border border-[#2B3242] p-4 rounded-xl shadow-sm">
         <div className="flex items-center justify-between text-xs text-[#8A93A6] mb-2 font-medium">
           <span>今日進場材料</span>
           <ArrowDownRight size={16} className="text-emerald-400" />
@@ -71,7 +71,7 @@ export const StatCards: React.FC<StatCardProps> = ({
       </div>
 
       {/* 今日出庫領料 */}
-      <div className="bg-[#202532] border border-[#2B3242] p-4 rounded-xl shadow-xs">
+      <div className="bg-[#202532] border border-[#2B3242] p-4 rounded-xl shadow-sm">
         <div className="flex items-center justify-between text-xs text-[#8A93A6] mb-2 font-medium">
           <span>今日現場領料</span>
           <ArrowUpRight size={16} className="text-amber-400" />

@@ -22,16 +22,20 @@ export const EditOrderModal: React.FC<Props> = ({
 }) => {
   const [orderDate, setOrderDate] = useState('');
   const [supplier, setSupplier] = useState('');
+  const [targetLocation, setTargetLocation] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (initialItems.length > 0) {
       setOrderDate(initialItems[0].orderDate);
       setSupplier(initialItems[0].supplier || '');
+      setTargetLocation(initialItems[0].targetLocation || options.locations[1] || '地下室配管區');
       setItems(initialItems.map(i => ({ ...i })));
+      setErrorMsg('');
     }
-  }, [initialItems]);
+  }, [initialItems, options.locations]);
 
   if (!isOpen || initialItems.length === 0) return null;
 
@@ -52,7 +56,8 @@ export const EditOrderModal: React.FC<Props> = ({
         quantity: 1,
         unit: options.units[0] || '只',
         location: options.locations[0] || '工務所總倉',
-        supplier
+        supplier,
+        targetLocation: type === 'TRANSFER' ? targetLocation : undefined
       }
     ]);
   };
@@ -64,22 +69,36 @@ export const EditOrderModal: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
+
+    // 防呆驗證
+    const invalidQty = items.some(it => !it.quantity || Number(it.quantity) <= 0);
+    if (invalidQty) {
+      setErrorMsg('所有品項數量必須大於 0');
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload = items.map(it => ({ ...it, supplier }));
+      const payload = items.map(it => ({ 
+        ...it, 
+        supplier,
+        targetLocation: type === 'TRANSFER' ? targetLocation : undefined,
+        quantity: Number(it.quantity) || 1
+      }));
       await updateOrderWithItems(orderId, originalDate, orderDate, type, payload, 'admin@system.local');
       onSuccess();
       onClose();
     } catch (err) {
       console.error(err);
-      alert('更新單據失敗，請檢查資料庫狀態');
+      setErrorMsg('更新單據失敗，請檢查資料庫連線');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
       <div className="bg-[#202532] border border-[#2F374A] rounded-2xl max-w-5xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex justify-between items-center mb-5 border-b border-[#2A3243] pb-3">
           <div>
@@ -91,12 +110,18 @@ export const EditOrderModal: React.FC<Props> = ({
           </button>
         </div>
 
+        {errorMsg && (
+          <div className="p-3 mb-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
+            {errorMsg}
+          </div>
+        )}
+
         <datalist id="edit-specs">{options.specifications.map(s => <option key={s} value={s} />)}</datalist>
         <datalist id="edit-units">{options.units.map(u => <option key={u} value={u} />)}</datalist>
         <datalist id="edit-locations">{options.locations.map(l => <option key={l} value={l} />)}</datalist>
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className={`grid grid-cols-1 ${type === 'TRANSFER' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3 sm:gap-4`}>
             <div>
               <label className="block text-xs text-[#8E96A4] mb-1 font-medium">單據日期</label>
               <input 
@@ -116,6 +141,21 @@ export const EditOrderModal: React.FC<Props> = ({
                 className="w-full bg-[#181C25] border border-[#2E3647] rounded-lg p-2 text-white text-xs sm:text-sm focus:border-cyan-500 outline-none"
               />
             </div>
+            {type === 'TRANSFER' && (
+              <div>
+                <label className="block text-xs text-cyan-400 mb-1 font-medium">調撥目標庫位 / 案場</label>
+                <select
+                  value={targetLocation}
+                  onChange={(e) => setTargetLocation(e.target.value)}
+                  className="w-full bg-[#181C25] border border-cyan-500/50 rounded-lg p-2 text-white text-xs sm:text-sm focus:border-cyan-400 outline-none"
+                  required
+                >
+                  {options.locations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div>
@@ -132,7 +172,7 @@ export const EditOrderModal: React.FC<Props> = ({
 
             <div className="space-y-2.5">
               {items.map((item, idx) => (
-                <div key={idx} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-[#181C25] p-3 rounded-xl border border-[#28303F]">
+                <div key={item.id || `${item.itemName}-${idx}`} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-[#181C25] p-3 rounded-xl border border-[#28303F]">
                   <select
                     value={item.category}
                     onChange={(e) => {
@@ -140,6 +180,7 @@ export const EditOrderModal: React.FC<Props> = ({
                       const copy = [...items];
                       copy[idx].category = newCat;
                       copy[idx].itemName = options.categories[newCat]?.[0] || '';
+                      copy[idx].specification = options.specifications[0] || '';
                       setItems(copy);
                     }}
                     className="w-full sm:w-36 bg-[#202532] border border-[#2E3647] rounded-lg p-1.5 text-xs text-white focus:outline-none"
@@ -182,10 +223,11 @@ export const EditOrderModal: React.FC<Props> = ({
                       type="number"
                       min="1"
                       placeholder="數量"
-                      value={item.quantity}
+                      value={item.quantity === ('' as any) ? '' : item.quantity}
                       onChange={(e) => {
+                        const val = e.target.value;
                         const copy = [...items];
-                        copy[idx].quantity = Number(e.target.value) || 1;
+                        copy[idx].quantity = val === '' ? ('' as any) : Math.max(0, Number(val));
                         setItems(copy);
                       }}
                       className="w-16 bg-[#202532] border border-[#2E3647] rounded-lg p-1.5 text-xs text-white font-mono text-right"

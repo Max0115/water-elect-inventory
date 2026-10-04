@@ -142,7 +142,7 @@ export const saveGlobalOptions = async (options: GlobalOptions) => {
   }
 };
 
-// 讀取全部單據明細 (支援雙向合併，確保新建單據不會被空遠端覆蓋)
+// 讀取全部單據明細 (支援雙向合併，確保新建單據不會被空遠端覆蓋，並以唯一業務鍵去重)
 export const fetchInventoryRecords = async (): Promise<InventoryRecord[]> => {
   const localData = getLocalData<InventoryRecord[]>(LOCAL_STORAGE_RECORDS_KEY, sampleRecords);
 
@@ -151,9 +151,19 @@ export const fetchInventoryRecords = async (): Promise<InventoryRecord[]> => {
       const q = query(collection(db, 'inventory_records'), orderBy('orderDate', 'desc'));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        const remoteData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as InventoryRecord[];
-        const remoteIds = new Set(remoteData.map(r => r.id || `${r.orderId}_${r.orderIndex}`));
-        const localUnSynced = localData.filter(r => !remoteIds.has(r.id || `${r.orderId}_${r.orderIndex}`));
+        const remoteData = snapshot.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()),
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : (typeof data.updatedAt === 'string' ? data.updatedAt : new Date().toISOString()),
+          };
+        }) as InventoryRecord[];
+
+        // 以 orderId + orderIndex 作為業務唯一鍵去重，避免每次讀取重複累積
+        const remoteKeys = new Set(remoteData.map(r => `${r.orderId}_${r.orderIndex || 0}`));
+        const localUnSynced = localData.filter(r => !remoteKeys.has(`${r.orderId}_${r.orderIndex || 0}`));
         const merged = [...localUnSynced, ...remoteData];
         setLocalData(LOCAL_STORAGE_RECORDS_KEY, merged);
         return merged;
@@ -208,12 +218,12 @@ export const saveOrderWithItems = async (
   const currentLogs = getLocalData<OperationLog[]>(LOCAL_STORAGE_LOGS_KEY, sampleLogs);
   setLocalData(LOCAL_STORAGE_LOGS_KEY, [newLog, ...currentLogs]);
 
-  // 3. 嘗試同步至 Firebase Firestore
+  // 3. 嘗試同步至 Firebase Firestore (使用確定性 document ID 防重複)
   if (isFirebaseConfigured()) {
     try {
       const batch = writeBatch(db);
       newRecords.forEach((item) => {
-        const recordRef = doc(collection(db, 'inventory_records'));
+        const recordRef = doc(db, 'inventory_records', `${item.orderId}_${item.orderIndex}`);
         batch.set(recordRef, {
           ...item,
           createdAt: serverTimestamp(),
@@ -289,7 +299,7 @@ export const updateOrderWithItems = async (
       snap.docs.forEach(d => batch.delete(d.ref));
 
       updatedRecords.forEach((item) => {
-        const recordRef = doc(collection(db, 'inventory_records'));
+        const recordRef = doc(db, 'inventory_records', `${item.orderId}_${item.orderIndex}`);
         batch.set(recordRef, {
           ...item,
           createdAt: serverTimestamp(),

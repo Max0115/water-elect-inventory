@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 export interface ToastMessage {
   id: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
 
@@ -14,7 +14,7 @@ interface Props {
 
 export const ToastContainer: React.FC<Props> = ({ toasts, onDismiss }) => {
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none px-3 sm:px-0">
       {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
@@ -28,13 +28,15 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
       onDismiss(toast.id);
     }, 4000);
     return () => clearTimeout(timer);
-  }, [toast, onDismiss]);
+  }, [toast.id, onDismiss]);
 
   const bgBorder =
     toast.type === 'success'
       ? 'bg-[#1a2e26] border-emerald-500/40 text-emerald-300'
       : toast.type === 'error'
       ? 'bg-[#311b1b] border-red-500/40 text-red-300'
+      : toast.type === 'warning'
+      ? 'bg-[#332514] border-amber-500/40 text-amber-300'
       : 'bg-[#1b2533] border-cyan-500/40 text-cyan-300';
 
   const Icon =
@@ -42,6 +44,8 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
       ? CheckCircle2
       : toast.type === 'error'
       ? AlertCircle
+      : toast.type === 'warning'
+      ? AlertTriangle
       : Info;
 
   return (

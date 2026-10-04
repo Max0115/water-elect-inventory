@@ -28,17 +28,20 @@ export const ReturnToolModal: React.FC<Props> = ({
 
   if (!isOpen || !tool) return null;
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       setIsCompressing(true);
+      setErrorMsg('');
       const compressed = await compressImage(file, 1280, 1280, 0.75);
       setPhotoUrl(compressed);
     } catch (err) {
       console.error('圖片壓縮失敗', err);
-      alert('照片壓縮處理失敗');
+      setErrorMsg('照片壓縮處理失敗，請重試');
     } finally {
       setIsCompressing(false);
     }
@@ -46,21 +49,27 @@ export const ReturnToolModal: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (conditionStatus !== 'NORMAL' && !notes.trim()) {
+      setErrorMsg('機況標記為保養或損壞時，請於備註填寫具體狀況說明');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+      setErrorMsg('');
       await returnTool(tool.id, returnLocation, conditionStatus, notes.trim(), photoUrl);
       onSuccess();
       onClose();
     } catch (err) {
       console.error(err);
-      alert('歸還登記失敗，請重試');
+      setErrorMsg('歸還登記失敗，請重試');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
       <div className="bg-[#202532] border border-[#2F374A] rounded-2xl max-w-lg w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
         <div className="flex justify-between items-center border-b border-[#2A3243] pb-3">
           <div>
@@ -157,6 +166,26 @@ export const ReturnToolModal: React.FC<Props> = ({
             </div>
           </div>
 
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
+              {errorMsg}
+            </div>
+          )}
+
+          {/* 借出時的照片 (供點收對照) */}
+          {tool.photoUrl && (
+            <div className="p-3 rounded-xl bg-[#161922] border border-[#2B3242]">
+              <span className="text-xs text-[#8E96A4] font-medium block mb-1.5">
+                借出時存證相片 (對照是否有新外傷或缺件):
+              </span>
+              <img
+                src={tool.photoUrl}
+                alt="借出時機況"
+                className="max-h-28 rounded-lg object-contain bg-black/40 border border-[#2E3647]"
+              />
+            </div>
+          )}
+
           {/* 歸還說明 */}
           <div>
             <label className="block text-[#8E96A4] mb-1 font-semibold">
@@ -248,3 +277,4 @@ export const ReturnToolModal: React.FC<Props> = ({
     </div>
   );
 };
+

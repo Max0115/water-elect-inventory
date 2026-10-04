@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   FileText, 
   Search, 
@@ -8,9 +8,14 @@ import {
   Edit3, 
   Trash2, 
   ArrowRightLeft,
-  UploadCloud
+  UploadCloud,
+  RefreshCw,
+  Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { OperationLog } from '../../types';
+import { EmptyState } from '../common/EmptyState';
+import { Pagination } from '../common/Pagination';
 
 interface Props {
   logs: OperationLog[];
@@ -20,6 +25,8 @@ interface Props {
 export const AuditLogsView: React.FC<Props> = ({ logs, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 30;
 
   const filteredLogs = logs.filter(log => {
     if (actionFilter !== 'ALL' && log.action !== actionFilter) return false;
@@ -85,6 +92,28 @@ export const AuditLogsView: React.FC<Props> = ({ logs, onRefresh }) => {
     }
   };
 
+  const handleExportExcel = () => {
+    const data = filteredLogs.map((log, idx) => ({
+      項次: idx + 1,
+      時間戳記: formatTimestamp(log.timestamp),
+      動作類別: log.action,
+      目標項目: log.targetName,
+      操作帳號: log.userEmail || log.userId,
+      異動細節: log.details ? JSON.stringify(log.details) : ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '操作日誌');
+    XLSX.writeFile(wb, `水電工程_操作軌跡日誌_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredLogs.slice(start, start + pageSize);
+  }, [filteredLogs, currentPage, pageSize]);
+
   return (
     <div className="space-y-4">
       {/* 搜尋與類別篩選 */}
@@ -95,16 +124,16 @@ export const AuditLogsView: React.FC<Props> = ({ logs, onRefresh }) => {
             type="text"
             placeholder="搜尋單號、操作人或操作項目..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             className="w-full bg-[#161922] border border-[#2E3647] rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-[#717B8F] focus:outline-none focus:border-cyan-500 transition"
           />
         </div>
 
-        <div className="flex items-center space-x-2 text-xs">
+        <div className="flex items-center space-x-2 text-xs flex-wrap gap-y-2">
           <span className="text-[#717B8F]">篩選動作：</span>
           <select
             value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
+            onChange={(e) => { setActionFilter(e.target.value); setCurrentPage(1); }}
             className="bg-[#161922] border border-[#2E3647] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
           >
             <option value="ALL">全部動作</option>
@@ -115,6 +144,22 @@ export const AuditLogsView: React.FC<Props> = ({ logs, onRefresh }) => {
             <option value="IMPORT">Excel匯入</option>
           </select>
 
+          <button
+            onClick={onRefresh}
+            title="重新整理日誌"
+            className="px-2.5 py-1.5 rounded-lg bg-[#242938] hover:bg-[#2F3648] text-[#8E96A4] hover:text-white transition flex items-center"
+          >
+            <RefreshCw size={12} className="mr-1 text-cyan-400" /> 重新載入
+          </button>
+
+          <button
+            onClick={handleExportExcel}
+            title="匯出 Excel"
+            className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 transition flex items-center"
+          >
+            <Download size={12} className="mr-1" /> 匯出 Excel
+          </button>
+
           <span className="text-[#717B8F] pl-2 border-l border-[#2E3647]">
             共 <strong className="text-cyan-400 font-mono">{filteredLogs.length}</strong> 筆日誌
           </span>
@@ -122,49 +167,66 @@ export const AuditLogsView: React.FC<Props> = ({ logs, onRefresh }) => {
       </div>
 
       {/* 日誌表格 */}
-      <div className="bg-[#202532] border border-[#2B3242] rounded-xl overflow-hidden shadow-xs">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-[#181C25] text-[#8A93A6] border-b border-[#2B3242]">
-            <tr>
-              <th className="py-3 px-4 font-semibold">時間戳記</th>
-              <th className="py-3 px-4 font-semibold">動作類別</th>
-              <th className="py-3 px-4 font-semibold">異動目標項目</th>
-              <th className="py-3 px-4 font-semibold">操作帳號</th>
-              <th className="py-3 px-4 font-semibold">異動內容細節</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#282F3E]">
-            {filteredLogs.map((log, idx) => (
-              <tr key={log.id || idx} className="hover:bg-[#252B3A] transition">
-                <td className="py-3 px-4 text-[#8A93A6] font-mono flex items-center">
-                  <Clock size={12} className="mr-1.5 text-cyan-400" />
-                  {formatTimestamp(log.timestamp)}
-                </td>
-                <td className="py-3 px-4">{getActionBadge(log.action)}</td>
-                <td className="py-3 px-4 font-medium text-white">
-                  {log.targetName}
-                </td>
-                <td className="py-3 px-4 text-[#A1AAB9]">
-                  <span className="inline-flex items-center">
-                    <User size={12} className="mr-1 text-[#717B8F]" />
-                    {log.userEmail || log.userId}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-[#717B8F] font-mono text-[11px]">
-                  {log.details ? JSON.stringify(log.details) : '-'}
-                </td>
-              </tr>
-            ))}
-            {filteredLogs.length === 0 && (
+      <div className="bg-[#202532] border border-[#2B3242] rounded-xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead className="bg-[#181C25] text-[#8A93A6] border-b border-[#2B3242]">
               <tr>
-                <td colSpan={5} className="py-16 text-center text-[#717B8F]">
-                  查無符合條件的系統稽核日誌紀錄
-                </td>
+                <th className="py-3 px-4 font-semibold">時間戳記</th>
+                <th className="py-3 px-4 font-semibold">動作類別</th>
+                <th className="py-3 px-4 font-semibold">異動目標項目</th>
+                <th className="py-3 px-4 font-semibold">操作帳號</th>
+                <th className="py-3 px-4 font-semibold">異動內容細節</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#282F3E]">
+              {paginatedLogs.map((log, idx) => (
+                <tr key={log.id || `log-${log.targetId}-${idx}`} className="hover:bg-[#252B3A] transition">
+                  <td className="py-3 px-4 text-[#8A93A6] font-mono flex items-center">
+                    <Clock size={12} className="mr-1.5 text-cyan-400" />
+                    {formatTimestamp(log.timestamp)}
+                  </td>
+                  <td className="py-3 px-4">{getActionBadge(log.action)}</td>
+                  <td className="py-3 px-4 font-medium text-white">
+                    {log.targetName}
+                  </td>
+                  <td className="py-3 px-4 text-[#A1AAB9]">
+                    <span className="inline-flex items-center">
+                      <User size={12} className="mr-1 text-[#717B8F]" />
+                      {log.userEmail || log.userId}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-[#717B8F] font-mono text-[11px] max-w-xs truncate" title={log.details ? JSON.stringify(log.details, null, 2) : ''}>
+                    {log.details ? JSON.stringify(log.details) : '-'}
+                  </td>
+                </tr>
+              ))}
+              {filteredLogs.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8">
+                    <EmptyState
+                      title="查無符合條件的系統稽核日誌紀錄"
+                      description="請嘗試調整關鍵字或重設篩選條件"
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* 分頁控制 */}
+      {filteredLogs.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          totalItems={filteredLogs.length}
+          showInfo={true}
+        />
+      )}
     </div>
   );
 };

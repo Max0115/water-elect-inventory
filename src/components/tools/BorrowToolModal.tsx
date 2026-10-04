@@ -36,17 +36,21 @@ export const BorrowToolModal: React.FC<Props> = ({
   if (!isOpen || !tool) return null;
 
   // 處理照片選擇並自動微縮壓縮
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       setIsCompressing(true);
+      setErrorMsg('');
       const compressed = await compressImage(file, 1280, 1280, 0.75);
       setPhotoUrl(compressed);
     } catch (err) {
       console.error('圖片壓縮失敗', err);
-      alert('照片處理失敗，請重試');
+      setErrorMsg('照片處理失敗，請重試');
     } finally {
       setIsCompressing(false);
     }
@@ -55,25 +59,26 @@ export const BorrowToolModal: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!borrower.trim()) {
-      alert('請填寫借用人或領用工班');
+      setErrorMsg('請填寫借用人或領用工班');
       return;
     }
 
     try {
       setIsSubmitting(true);
+      setErrorMsg('');
       await borrowTool(tool.id, borrower.trim(), location, expectedReturnDate, notes.trim(), photoUrl);
       onSuccess();
       onClose();
     } catch (err) {
       console.error(err);
-      alert('借出登記失敗，請重試');
+      setErrorMsg('借出登記失敗，請重試');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
       <div className="bg-[#202532] border border-[#2F374A] rounded-2xl max-w-lg w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
         <div className="flex justify-between items-center border-b border-[#2A3243] pb-3">
           <div>
@@ -137,12 +142,19 @@ export const BorrowToolModal: React.FC<Props> = ({
               <input
                 type="date"
                 required
+                min={todayStr}
                 value={expectedReturnDate}
                 onChange={(e) => setExpectedReturnDate(e.target.value)}
                 className="w-full bg-[#161922] border border-[#2E3647] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-500 font-mono"
               />
             </div>
           </div>
+
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
+              {errorMsg}
+            </div>
+          )}
 
           {/* 備註 (機況/模具) */}
           <div>
@@ -237,3 +249,4 @@ export const BorrowToolModal: React.FC<Props> = ({
     </div>
   );
 };
+

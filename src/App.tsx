@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { Sidebar } from './components/common/Sidebar';
 import { Header } from './components/common/Header';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
+import { ConfirmModal } from './components/common/ConfirmModal';
 import { StatCards } from './components/dashboard/StatCards';
 import { InventoryTable, CalculatedStock } from './components/inventory/InventoryTable';
 import { ExcelImportModal } from './components/inventory/ExcelImportModal';
@@ -81,6 +82,7 @@ export default function App() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string>('');
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [prefillItem, setPrefillItem] = useState<{
     category: string;
     itemName: string;
@@ -187,9 +189,11 @@ export default function App() {
         };
       }
 
-      if (r.type === 'IN' || r.type === 'SCRAP') {
+      // IN (進貨) = 增加庫存；R (退料回倉) = 增加庫存（未用完材料退回倉庫）
+      if (r.type === 'IN' || r.type === 'R') {
         map[key].total += qty;
-      } else if (r.type === 'OUT' || r.type === 'R') {
+      // OUT (領料出庫) = 減少庫存；SCRAP (報廢/損耗) = 減少可用庫存
+      } else if (r.type === 'OUT' || r.type === 'SCRAP') {
         map[key].total -= qty;
       }
     });
@@ -291,13 +295,16 @@ export default function App() {
     setModalOpen(true);
   };
 
-  // 刪除單據
-  const handleDeleteOrder = async (orderId: string) => {
-    if (confirm(`確定刪除單據 ${orderId} 嗎？此操作將同步回滾庫存。`)) {
-      await deleteOrder(orderId, 'admin@system.local');
-      showToast(`單據 ${orderId} 已成功刪除`, 'info');
-      loadAllData();
-    }
+  const handleDeleteOrder = (orderId: string) => {
+    setOrderToDelete(orderId);
+  };
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    await deleteOrder(orderToDelete, 'admin@system.local');
+    showToast(`單據 ${orderToDelete} 已成功刪除`, 'info');
+    setOrderToDelete(null);
+    loadAllData();
   };
 
   return (
@@ -311,6 +318,7 @@ export default function App() {
         locations={options.locations}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onLockTerminal={() => showToast('已成功鎖定目前終端工作站', 'info')}
       />
 
       {/* 主內容區 */}
@@ -472,6 +480,18 @@ export default function App() {
           showToast('Excel 批次進貨單已成功匯入！', 'success');
           loadAllData();
         }}
+      />
+
+      {/* 刪除單據二次確認 */}
+      <ConfirmModal
+        isOpen={Boolean(orderToDelete)}
+        onClose={() => setOrderToDelete(null)}
+        onConfirm={handleConfirmDeleteOrder}
+        title="確定刪除單據？"
+        message={`確定要永久刪除單據「${orderToDelete}」嗎？此操作將同步回滾庫存計算。`}
+        variant="danger"
+        confirmText="確認刪除"
+        cancelText="取消"
       />
 
       {/* 系統 Toast 通知 */}

@@ -592,7 +592,7 @@ export const OptionsManager: React.FC<Props> = ({
       {/* 右欄：規格庫 (全規格集中)、單位、案場庫位、材料商與安全庫存 */}
       <div className="space-y-4">
         {/* 管件與另件常用規格尺寸 (全尺寸由此挑選，可拖動調整前後順序) */}
-        <div className="bg-[#202532] p-5 rounded-2xl border border-cyan-500/30 space-y-3 shadow-xs">
+        <div className="bg-[#202532] p-5 rounded-2xl border border-cyan-500/30 space-y-3 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-[#282F3E]">
             <div>
               <h3 className="font-bold text-white text-sm flex items-center">
@@ -636,7 +636,7 @@ export const OptionsManager: React.FC<Props> = ({
         </div>
 
         {/* 自訂安全存量門檻 */}
-        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
+        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-[#282F3E]">
             <h3 className="font-bold text-white text-sm flex items-center">
               <ShieldAlert size={17} className="mr-2 text-amber-400" />
@@ -698,7 +698,7 @@ export const OptionsManager: React.FC<Props> = ({
         </div>
 
         {/* 計量單位 (可拖曳排序) */}
-        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
+        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-sm">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-white text-sm flex items-center">
               <Scale size={16} className="mr-2 text-cyan-400" />
@@ -726,7 +726,7 @@ export const OptionsManager: React.FC<Props> = ({
         </div>
 
         {/* 常用材料商與工班 (可拖曳排序) */}
-        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
+        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-sm">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-white text-sm flex items-center">
               <Truck size={16} className="mr-2 text-cyan-400" />
@@ -754,7 +754,7 @@ export const OptionsManager: React.FC<Props> = ({
         </div>
 
         {/* 施工案場與庫位 (可拖曳排序) */}
-        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-xs">
+        <div className="bg-[#202532] p-5 rounded-2xl border border-[#2B3242] space-y-3 shadow-sm">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-white text-sm flex items-center">
               <MapPin size={16} className="mr-2 text-cyan-400" />
@@ -803,7 +803,7 @@ export const OptionsManager: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleResetDictionary}
-          className="flex items-center text-xs bg-[#161922] hover:bg-[#282F3F] text-cyan-300 hover:text-white px-3 py-2 rounded-xl border border-cyan-800/50 transition self-start sm:self-auto shrink-0 shadow-xs"
+          className="flex items-center text-xs bg-[#161922] hover:bg-[#282F3F] text-cyan-300 hover:text-white px-3 py-2 rounded-xl border border-cyan-800/50 transition self-start sm:self-auto shrink-0 shadow-sm"
           title="還原為台灣水電官方標準管徑與同義詞對照庫"
         >
           <RotateCcw size={13} className="mr-1.5 text-cyan-400" />

@@ -1,35 +1,17 @@
 import { GlobalOptions, InventoryRecord, OperationLog } from '../types';
 import { DEFAULT_PART_SYNONYMS, DEFAULT_PIPE_SIZE_ALIASES } from './hydroDictionary';
+import { generateDefaultOptions } from './materialsDatabase';
 
-// 去除品名內硬編碼尺寸，尺寸規格一律獨立由 specifications 欄位管理
+// 使用完整的 15 大類水電工程材料資料庫作為系統預設選項
+const generated = generateDefaultOptions();
+
 export const initialOptions: GlobalOptions = {
-  categories: {
-    'PVC另件材料': ['電S', '45度OL 單放', 'OL', 'OT', 'OS', '順T', '異徑S', '球閥', '90度彎頭', '活接頭'],
-    '給水另件': ['EB 套銅彎頭', '套銅S', '給水直接頭', '立體三通', '雙外牙短管'],
-    '耐衝擊另件': ['OL', '套銅S', '耐衝擊接頭', '外牙塞頭', '管帽'],
-    'PVC管材': ['耐衝擊管', '橘色薄管', '灰色厚管', '電線導管', '波紋管'],
-    '電線電纜': ['單芯銅線 (紅)', '單芯銅線 (白)', '絞線 (綠)', '主幹線 (黑)'],
-    '開關箱與插座': ['接地雙插座附蓋板', '無熔線斷路器', '漏電斷路器', '金屬開關接線盒']
-  },
-  specifications: [
-    '1/8"', '1/4"', '5/16"', '3/8"',
-    '1/2"', '5/8"', '3/4"', '7/8"', 
-    '1"', '1"(25)', '1"x3/4"', 
-    '1-1/4"', '1-1/2"', '2"', '2"x1"', '2-1/2"', 
-    '3"', '3-1/2"', '4"', '4"x2"', '5"', '6"', 
-    '2.0mm', '5.5mm²', '14mm²', '38mm²', 
-    '2P 20A', '3P 30A'
-  ],
-  units: ['支', '只', '罐', '條', '盒', '卷', '米'],
-  locations: ['工務所總倉', '地下室配管區', 'A棟1F施工區', 'B棟頂樓機房', '案場外圍管線區'],
-  suppliers: ['太乙水電材料', '泰詠材料行', '南亞管材行', '大亞電線電纜', '第一組配管工班', '第二組拉線工班'],
-  minStockMap: {
-    '電S': 10,
-    '45度OL 單放': 5,
-    '單芯銅線 (紅)': 3,
-    '耐衝擊管': 8,
-    '無熔線斷路器': 4
-  },
+  categories: generated.categories,
+  specifications: generated.specifications,
+  units: generated.units,
+  locations: generated.locations,
+  suppliers: generated.suppliers,
+  minStockMap: generated.minStockMap,
   synonyms: DEFAULT_PART_SYNONYMS,
   sizeAliases: DEFAULT_PIPE_SIZE_ALIASES
 };
@@ -169,7 +151,7 @@ export const sampleLogs: OperationLog[] = [
     targetId: 'I-20260915-01',
     targetName: '進貨單 I-20260915-01',
     userId: 'admin@system.local',
-    userEmail: 'max5020899@gmail.com',
+    userEmail: 'admin@system.local',
     timestamp: new Date('2026-09-15T08:30:00').toISOString(),
     details: { itemCount: 3, type: 'IN', orderDate: '2026-09-15' }
   },
@@ -179,7 +161,7 @@ export const sampleLogs: OperationLog[] = [
     targetId: 'O-20260916-01',
     targetName: '出庫單 O-20260916-01',
     userId: 'admin@system.local',
-    userEmail: 'max5020899@gmail.com',
+    userEmail: 'admin@system.local',
     timestamp: new Date('2026-09-16T09:15:00').toISOString(),
     details: { itemCount: 2, type: 'OUT', orderDate: '2026-09-16' }
   },
@@ -189,17 +171,17 @@ export const sampleLogs: OperationLog[] = [
     targetId: 'T-20260916-01',
     targetName: '調撥單 T-20260916-01',
     userId: 'admin@system.local',
-    userEmail: 'max5020899@gmail.com',
+    userEmail: 'admin@system.local',
     timestamp: new Date('2026-09-16T10:20:00').toISOString(),
     details: { itemCount: 1, type: 'TRANSFER', targetLocation: '地下室配管區' }
   },
   {
     id: 'log-004',
-    action: 'DELETE',
+    action: 'CREATE',
     targetId: 'S-20260916-01',
-    targetName: '報廢單 S-20260916-01',
+    targetName: '餘料/報廢單 S-20260916-01',
     userId: 'admin@system.local',
-    userEmail: 'max5020899@gmail.com',
+    userEmail: 'admin@system.local',
     timestamp: new Date('2026-09-16T11:00:00').toISOString(),
     details: { itemCount: 1, type: 'SCRAP' }
   }

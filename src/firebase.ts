@@ -1,6 +1,6 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
 
 // 必須以靜態方式直接存取 import.meta.env.VITE_*，以利 Vite 在生產建置時正確替換環境變數
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
@@ -18,6 +18,8 @@ export const hasValidConfig = Boolean(
   projectId !== 'undefined'
 );
 
+export const isFirebaseConfigured = (): boolean => hasValidConfig;
+
 const firebaseConfig = hasValidConfig ? {
   apiKey,
   authDomain,
@@ -34,9 +36,9 @@ const firebaseConfig = hasValidConfig ? {
   appId: '1:100000000000:web:demoFallback123456',
 };
 
-let app: any;
-let db: any;
-let auth: any;
+let app: FirebaseApp | undefined;
+let db: Firestore | undefined;
+let auth: Auth | undefined;
 
 try {
   app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);

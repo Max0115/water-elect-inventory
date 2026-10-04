@@ -7,8 +7,7 @@ export type MainTab =
   | 'out_orders'
   | 'scrap'
   | 'options'
-  | 'logs'
-  | 'settings';
+  | 'logs';
 
 export interface OrderItem {
   id?: string;
@@ -30,8 +29,8 @@ export interface OrderItem {
 export interface InventoryRecord extends OrderItem {
   id: string;
   orderId: string;
-  createdAt: any;
-  updatedAt: any;
+  createdAt: string;
+  updatedAt: string;
   updatedBy: string;
 }
 
@@ -44,7 +43,7 @@ export interface StockItem {
   unit: string;
   currentStock: number;
   minStock?: number; // 安全庫存警示值
-  lastUpdated?: any;
+  lastUpdated?: string;
 }
 
 export interface GlobalOptions {
@@ -65,8 +64,8 @@ export interface OperationLog {
   targetName: string;
   userId: string;
   userEmail: string;
-  timestamp: any;
-  details?: Record<string, any>;
+  timestamp: string;
+  details?: Record<string, unknown>;
 }
 
 export type ToolStatus = 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE' | 'DAMAGED';
@@ -82,7 +81,7 @@ export interface ToolItem {
   currentLocation?: string; // 當前所在案場/庫位
   borrowDate?: string;
   expectedReturnDate?: string;
-  photoUrl?: string; // 存證照片 (壓縮 Base64 或 URL)
+  photoUrl?: string; // 存證照片 (壓縮後雲端 URL 或 Base64)
   conditionNote?: string; // 機況備註 (如模具規格、配件狀況)
   lastInspectionDate?: string; // 上次保養/校正日期
   nextInspectionDate?: string; // 下次校正到期日

@@ -9,7 +9,8 @@ import {
   LogOut, 
   HardHat, 
   X,
-  Wrench
+  Wrench,
+  LucideIcon
 } from 'lucide-react';
 import { MainTab } from '../../types';
 import { APP_VERSION } from '../../version';
@@ -22,6 +23,7 @@ interface Props {
   locations: string[];
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  onLockTerminal?: () => void;
 }
 
 export const Sidebar: React.FC<Props> = ({
@@ -32,8 +34,9 @@ export const Sidebar: React.FC<Props> = ({
   locations,
   isMobileOpen,
   onCloseMobile,
+  onLockTerminal,
 }) => {
-  const navItems: { id: MainTab; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
+  const navItems: { id: MainTab; label: string; icon: LucideIcon }[] = [
     { id: 'inventory', label: '庫存總覽', icon: Box },
     { id: 'tools', label: '機具與儀器借還', icon: Wrench },
     { id: 'in_orders', label: '進貨管理', icon: Download },
@@ -122,7 +125,7 @@ export const Sidebar: React.FC<Props> = ({
           </div>
         </div>
         <button 
-          onClick={() => alert('已鎖定目前終端')} 
+          onClick={onLockTerminal || (() => {})} 
           className="flex items-center text-xs text-red-400/80 hover:text-red-300 transition mt-1"
         >
           <LogOut size={13} className="mr-1.5" /> 登出 / 鎖定終端
@@ -141,7 +144,7 @@ export const Sidebar: React.FC<Props> = ({
       {/* 手機端抽屜背景遮罩 */}
       {isMobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onCloseMobile} />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onCloseMobile} />
           <div className="relative z-10 w-64 h-full shadow-2xl">
             {content}
           </div>

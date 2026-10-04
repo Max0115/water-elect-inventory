@@ -147,6 +147,31 @@ export const initialToolLogs: ToolLog[] = [
 ];
 
 // 本地暫存輔助
+import { db, isFirebaseConfigured } from '../firebase';
+import { doc, getDocs, setDoc, deleteDoc, collection } from 'firebase/firestore';
+
+const safeSetLocal = <T>(key: string, val: T) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch (e) {
+    console.warn(`LocalStorage quota warning for ${key}, trimming heavy media:`, e);
+    // 預防 LocalStorage 5MB 配額超標：若寫入失敗，精簡舊記錄的 Base64 圖片
+    try {
+      if (Array.isArray(val)) {
+        const lightweight = (val as any[]).map((item, idx) => {
+          if (idx > 5 && typeof item.photoUrl === 'string' && item.photoUrl.startsWith('data:')) {
+            return { ...item, photoUrl: '' };
+          }
+          return item;
+        });
+        localStorage.setItem(key, JSON.stringify(lightweight));
+      }
+    } catch {
+      // 靜默降級
+    }
+  }
+};
+
 const getLocal = <T>(key: string, fallback: T): T => {
   try {
     const saved = localStorage.getItem(key);
@@ -157,23 +182,33 @@ const getLocal = <T>(key: string, fallback: T): T => {
   return fallback;
 };
 
-const setLocal = <T>(key: string, val: T) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(val));
-  } catch (e) {
-    console.warn(`Failed writing local storage for ${key}`, e);
-  }
-};
-
 /**
- * 取得工具清單
+ * 取得工具清單 (支援 Firestore 雲端雙向合併)
  */
 export async function fetchTools(): Promise<ToolItem[]> {
-  return getLocal<ToolItem[]>(TOOLS_STORAGE_KEY, initialTools);
+  const localTools = getLocal<ToolItem[]>(TOOLS_STORAGE_KEY, initialTools);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const snap = await getDocs(collection(db, 'tools'));
+      if (!snap.empty) {
+        const remoteTools = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ToolItem[];
+        const remoteIds = new Set(remoteTools.map(t => t.id));
+        const unSyncedLocal = localTools.filter(t => !remoteIds.has(t.id));
+        const merged = [...unSyncedLocal, ...remoteTools];
+        safeSetLocal(TOOLS_STORAGE_KEY, merged);
+        return merged;
+      }
+    } catch (e) {
+      console.warn('Firebase fetchTools fallback to local cache:', e);
+    }
+  }
+
+  return localTools;
 }
 
 /**
- * 儲存/新增工具
+ * 儲存/新增工具 (本地快取 + Firestore 雲端同步)
  */
 export async function saveTool(tool: ToolItem): Promise<void> {
   const current = await fetchTools();
@@ -182,7 +217,19 @@ export async function saveTool(tool: ToolItem): Promise<void> {
     ? current.map(t => (t.id === tool.id ? tool : t))
     : [tool, ...current];
 
-  setLocal(TOOLS_STORAGE_KEY, updated);
+  safeSetLocal(TOOLS_STORAGE_KEY, updated);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      // 清洗任何可能為 undefined 的屬性，避免 Firestore 報錯
+      const cleanTool = Object.fromEntries(
+        Object.entries(tool).filter(([_, v]) => v !== undefined)
+      );
+      await setDoc(doc(db, 'tools', tool.id), cleanTool, { merge: true });
+    } catch (e) {
+      console.warn('Firebase saveTool failed:', e);
+    }
+  }
 }
 
 /**
@@ -191,7 +238,15 @@ export async function saveTool(tool: ToolItem): Promise<void> {
 export async function deleteTool(toolId: string): Promise<void> {
   const current = await fetchTools();
   const updated = current.filter(t => t.id !== toolId);
-  setLocal(TOOLS_STORAGE_KEY, updated);
+  safeSetLocal(TOOLS_STORAGE_KEY, updated);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      await deleteDoc(doc(db, 'tools', toolId));
+    } catch (e) {
+      console.warn('Firebase deleteTool failed:', e);
+    }
+  }
 }
 
 /**
@@ -207,7 +262,9 @@ export async function borrowTool(
 ): Promise<void> {
   const current = await fetchTools();
   const target = current.find(t => t.id === toolId);
-  if (!target) return;
+  if (!target) {
+    throw new Error(`找不到 ID 為 ${toolId} 的機具設備`);
+  }
 
   const nowStr = new Date().toISOString().split('T')[0];
   const updatedTool: ToolItem = {
@@ -217,8 +274,8 @@ export async function borrowTool(
     currentLocation: location,
     borrowDate: nowStr,
     expectedReturnDate,
-    conditionNote: notes || target.conditionNote,
-    photoUrl: photoUrl || target.photoUrl
+    conditionNote: notes || target.conditionNote || '',
+    photoUrl: photoUrl || target.photoUrl || ''
   };
 
   await saveTool(updatedTool);
@@ -233,10 +290,18 @@ export async function borrowTool(
     person: borrower,
     location,
     timestamp: new Date().toISOString(),
-    conditionNote: notes,
-    photoUrl
+    conditionNote: notes || '',
+    photoUrl: photoUrl || ''
   };
-  setLocal(TOOL_LOGS_STORAGE_KEY, [newLog, ...logs]);
+  safeSetLocal(TOOL_LOGS_STORAGE_KEY, [newLog, ...logs]);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      await setDoc(doc(db, 'tool_logs', newLog.id), newLog);
+    } catch (e) {
+      console.warn('Firebase tool_logs sync failed:', e);
+    }
+  }
 }
 
 /**
@@ -251,18 +316,20 @@ export async function returnTool(
 ): Promise<void> {
   const current = await fetchTools();
   const target = current.find(t => t.id === toolId);
-  if (!target) return;
+  if (!target) {
+    throw new Error(`找不到 ID 為 ${toolId} 的機具設備`);
+  }
 
   const prevBorrower = target.currentBorrower || '現場工班';
   const updatedTool: ToolItem = {
     ...target,
     status: conditionStatus === 'NORMAL' ? 'AVAILABLE' : conditionStatus,
-    currentBorrower: undefined,
+    currentBorrower: '',
     currentLocation: location || '工務所總倉',
-    borrowDate: undefined,
-    expectedReturnDate: undefined,
-    conditionNote: notes || target.conditionNote,
-    photoUrl: photoUrl || target.photoUrl
+    borrowDate: '',
+    expectedReturnDate: '',
+    conditionNote: notes || target.conditionNote || '',
+    photoUrl: photoUrl || target.photoUrl || ''
   };
 
   await saveTool(updatedTool);
@@ -278,14 +345,41 @@ export async function returnTool(
     location: location || '工務所總倉',
     timestamp: new Date().toISOString(),
     conditionNote: notes ? `${notes} (機況: ${conditionStatus})` : `機況: ${conditionStatus}`,
-    photoUrl
+    photoUrl: photoUrl || ''
   };
-  setLocal(TOOL_LOGS_STORAGE_KEY, [newLog, ...logs]);
+  safeSetLocal(TOOL_LOGS_STORAGE_KEY, [newLog, ...logs]);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      await setDoc(doc(db, 'tool_logs', newLog.id), newLog);
+    } catch (e) {
+      console.warn('Firebase return tool_logs sync failed:', e);
+    }
+  }
 }
 
 /**
  * 取得工具借還軌跡日誌
  */
 export async function fetchToolLogs(): Promise<ToolLog[]> {
-  return getLocal<ToolLog[]>(TOOL_LOGS_STORAGE_KEY, initialToolLogs);
+  const localLogs = getLocal<ToolLog[]>(TOOL_LOGS_STORAGE_KEY, initialToolLogs);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const snap = await getDocs(collection(db, 'tool_logs'));
+      if (!snap.empty) {
+        const remoteLogs = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ToolLog[];
+        const remoteIds = new Set(remoteLogs.map(l => l.id));
+        const unSynced = localLogs.filter(l => !remoteIds.has(l.id));
+        const merged = [...unSynced, ...remoteLogs];
+        safeSetLocal(TOOL_LOGS_STORAGE_KEY, merged);
+        return merged;
+      }
+    } catch (e) {
+      console.warn('Firebase fetchToolLogs fallback to local:', e);
+    }
+  }
+
+  return localLogs;
 }
+

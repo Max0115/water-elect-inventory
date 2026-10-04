@@ -38,17 +38,20 @@ export const AddToolModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       setIsCompressing(true);
+      setErrorMsg('');
       const compressed = await compressImage(file, 1280, 1280, 0.75);
       setPhotoUrl(compressed);
     } catch (err) {
       console.error(err);
-      alert('照片壓縮失敗');
+      setErrorMsg('照片壓縮失敗，請重試');
     } finally {
       setIsCompressing(false);
     }
@@ -57,13 +60,15 @@ export const AddToolModal: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert('請填寫機具名稱');
+      setErrorMsg('請填寫機具名稱');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const newId = `TL-${String(Math.floor(Math.random() * 900) + 100)}`;
+      setErrorMsg('');
+      // 生成確定性唯一 ID，避免隨機碰撞
+      const newId = `TL-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 90 + 10)}`;
       const newTool: ToolItem = {
         id: newId,
         name: name.trim(),
@@ -82,14 +87,14 @@ export const AddToolModal: React.FC<Props> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      alert('新增機具失敗，請重試');
+      setErrorMsg('新增機具失敗，請重試');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in duration-150">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
       <div className="bg-[#202532] border border-[#2F374A] rounded-2xl max-w-lg w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
         <div className="flex justify-between items-center border-b border-[#2A3243] pb-3">
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center">
@@ -215,6 +220,7 @@ export const AddToolModal: React.FC<Props> = ({
                 <input
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   onChange={handlePhotoChange}
                   disabled={isCompressing}
                   className="hidden"
@@ -222,6 +228,12 @@ export const AddToolModal: React.FC<Props> = ({
               </label>
             )}
           </div>
+
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs">
+              {errorMsg}
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2 pt-2 border-t border-[#2A3243]">
             <button
@@ -251,3 +263,4 @@ export const AddToolModal: React.FC<Props> = ({
     </div>
   );
 };
+

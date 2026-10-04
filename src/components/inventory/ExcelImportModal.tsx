@@ -70,8 +70,9 @@ export const ExcelImportModal: React.FC<Props> = ({
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const workbook = XLSX.read(bstr, { type: 'binary' });
+        const buffer = evt.target?.result as ArrayBuffer;
+        const data = new Uint8Array(buffer);
+        const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
@@ -82,6 +83,8 @@ export const ExcelImportModal: React.FC<Props> = ({
         }
 
         const items: OrderItem[] = jsonData.map((row, idx) => {
+          const rawQty = Number(row['數量']);
+          const qty = !isNaN(rawQty) && rawQty > 0 ? rawQty : 1;
           return {
             orderDate,
             orderIndex: idx + 1,
@@ -89,7 +92,7 @@ export const ExcelImportModal: React.FC<Props> = ({
             category: row['材料分類'] || row['分類'] || 'PVC另件材料',
             itemName: row['品名'] || row['材料名稱'] || '未指定材料',
             specification: row['規格'] || row['型號'] || '-',
-            quantity: Number(row['數量']) || 1,
+            quantity: qty,
             unit: row['單位'] || '只',
             location: row['案場/庫位'] || row['地點'] || defaultLocation || '工務所總倉',
             supplier: row['廠商名稱'] || row['廠商'] || supplier,
@@ -107,7 +110,7 @@ export const ExcelImportModal: React.FC<Props> = ({
         setErrorMsg('解析 Excel 失敗，請確認檔案為標準 .xlsx 或 .xls');
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
   // 執行批次寫入
@@ -133,7 +136,7 @@ export const ExcelImportModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[#202532] border border-[#2F374A] rounded-2xl max-w-3xl w-full p-6 max-h-[90vh] flex flex-col shadow-2xl">
         {/* 標題與關閉 */}
         <div className="flex justify-between items-center pb-4 border-b border-[#2A3243]">
@@ -175,7 +178,13 @@ export const ExcelImportModal: React.FC<Props> = ({
               <label className="mt-3 flex items-center justify-center text-xs bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 py-2 px-3 rounded-lg border border-cyan-500/30 font-medium cursor-pointer transition">
                 <UploadCloud size={15} className="mr-1.5" />
                 <span>{fileName ? fileName : '選取 Excel 檔案'}</span>
-                <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} className="hidden" />
+                <input 
+                  type="file" 
+                  accept=".xlsx,.xls" 
+                  onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                />
               </label>
             </div>
           </div>
@@ -235,7 +244,7 @@ export const ExcelImportModal: React.FC<Props> = ({
                   </thead>
                   <tbody className="divide-y divide-[#232A37]">
                     {parsedItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-[#1E232E] text-white">
+                      <tr key={`${item.itemName}_${item.specification}_${idx}`} className="hover:bg-[#1E232E] text-white">
                         <td className="py-2 px-3 text-[#7E889B] font-mono">{idx + 1}</td>
                         <td className="py-2 px-3 text-[#7E889B]">{item.category}</td>
                         <td className="py-2 px-3 font-medium">{item.itemName}</td>
